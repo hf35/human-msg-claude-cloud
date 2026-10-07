@@ -1,146 +1,182 @@
-# Main Plot
-Мессенжер (веб и бот в телеграм) для возможности задать вопрос или поделиться мыслью с живым человеком. 
-Каждое сообщение уходит случайному пользователю онлайн - который должен на него ответить и ответ улетит отправителю.
+# Продукт
 
-## Main Rules 
+Анонимный мессенджер (веб и Telegram-бот), где можно задать вопрос или поделиться
+мыслью с живым человеком. Каждый вопрос уходит случайному свободному пользователю
+онлайн, тот отвечает, и ответ возвращается автору.
 
-Мы хотим чтобы юзер всегда получал ответ на его сообщение
+**Главная цель: на каждый вопрос автор получает ответ.**
 
-### Rules that must be enforced
+## Модель общения (MVP)
 
-1. **Replies are always allowed.** If a user has an unread incoming message,
-   their message is treated as a *reply* to the last unread one
-   (`handleMessage`). Never block this. If replies were blocked, a user who is
-   awaiting a reply could not answer an incoming message, and neither side of
-   the dialog could proceed.
+- Общение строится как разовый обмен **«вопрос → ответ»**. Диалогов нет: на ответ
+  отвечать нельзя и не нужно.
+- Отправителю вопроса не сообщают, кто его получатель, а получатель не выбирает
+  вопрос. Отправить сообщение конкретному человеку нельзя нигде, даже в бэкофисе.
+- Веб и Telegram — **раздельные аккаунты**. Один и тот же человек в вебе и в
+  Telegram считается двумя разными пользователями. Аккаунты не связываются,
+  общей истории у них нет.
+- Пользователи видят друг друга только под анонимным псевдонимом (например,
+  «прилагательное + животное»). Реальные данные (Google-аккаунт, Telegram id)
+  никогда не показываются другим пользователям.
 
-2. **One message — one reply.** While a user is awaiting a reply, they cannot
-   send a new message — neither to a random recipient nor to a manually chosen
-   one. See `AWAITING_REPLY` in `src/locales/ru.js`.
+## Термины
 
-3. **Busy users receive nothing.** Users with unread incoming messages are
-   excluded from the random recipient pool (`getBusyUserIds`) and rejected for
-   manual sends. **This rule must not apply to replies** — otherwise a busy
-   user could never become free again.
+- **Вопрос (question)** — сообщение, которое пользователь отправляет случайному
+  получателю.
+- **Ответ (answer)** — сообщение, отправленное в ответ на вопрос. Хранится
+  отдельной записью со ссылкой на вопрос. На ответ не отвечают.
+- **Назначение (assignment)** — вопрос передан конкретному получателю, у которого
+  есть срок на ответ (дедлайн).
+- **Онлайн**:
+  - в вебе — у пользователя открыто WebSocket-соединение;
+  - в Telegram — последняя активность была не позднее `ONLINE_WINDOW` назад
+    (по умолчанию 30 минут, настраивается).
+- **Занятой пользователь (busy)** — у пользователя есть назначенный ему вопрос, на
+  который он ещё не ответил.
+- **Ожидающий ответа (awaiting answer)** — у пользователя есть свой вопрос без
+  ответа (он стоит в очереди или назначен кому-то).
 
-4. **Replies are persisted as separate rows.** A reply is inserted into
-   `messages` with `reply_message_id` pointing at the original, and the
-   original is set to `replied = TRUE`. Never "answer" by only flipping the
-   `replied` flag — the reply text would be lost and the conversation would be
-   invisible in the web UI.
+«Занятой» и «ожидающий ответа» — **разные состояния**. Пользователь может
+одновременно ждать ответа на свой вопрос и быть занятым чужим вопросом.
 
-### Validation order
+## Жизненный цикл вопроса
 
-`handleMessage` (random routing) — order matters:
-1. Unread incoming exists → reply.
-2. Awaiting reply → reject (rule 2).
-3. Otherwise → forward to a random free recipient (rule 3).
-
-`sendMessageToUser` (manual recipient) — order matters:
-1. Sender awaiting reply → reject (rule 2).
-2. Unread incoming exists: from the chosen recipient → treat as reply and mark
-   the original replied; from someone else → reject.
-3. Chosen recipient is busy → reject (rule 3).
-4. Otherwise → send.
-
-Keep the "is this a reply?" check (`replyMessageId !== null`) *before* the busy
-recipient check, otherwise rule 3 would block the very reply that rule 1 requires.
-
-##  Improvments in Future, need to investigate
-
-1. Поскольку мы хотим, чтобы юзер всегда получал ответ, возможно есть смысл отправлять вопрос не одному юзеру, 
-а нескольким, и использовать ответ того кто ответит первый, но.. мы не хотим чтобы те кто отвечает торопились ответить
-лишь бы быть быстрее.. возможно нам нужно давать какое то время каждому из них 5-10 минут... Решим после выполнения основной части
-2. Возможно нам нужна система рейтинга, чтобы получив ответ - юзер мог выставлять оценки ответам. И в будущем пользователи с
- более высоким рейтингом получали больше вопросов
-3. нам нужно будет как уметь преобразовывать айдишники юзеров в что то более читаемое и понятное - например прилагательные+животное или 
-рандомные имени из телефонного справочника.. Но с сохранением анонимности
-4. Мобильные платформы
-
-# Development Guidelines
-
-## Code Style and Format
-
-### ES6 Module Format
-All JavaScript files must use ES6 module format with `import`/`export` syntax instead of CommonJS `require`/`module.exports`.
-
-Example:
-```javascript
-// Correct - ES6 import
-import { Telegraf } from 'telegraf';
-import bot from './bot/bot.js';
-
-// Incorrect - CommonJS
-const { Telegraf } = require('telegraf');
-const bot = require('./bot/bot');
+```
+queued ──(назначен свободному получателю)──► assigned ──(получен ответ)──► answered
+   ▲                                             │
+   └──────────(таймаут ANSWER_TIMEOUT)───────────┘
 ```
 
-### Language Guidelines
+- `queued` — вопрос ждёт в очереди свободного получателя.
+- `assigned` — вопрос назначен получателю, идёт отсчёт `ANSWER_TIMEOUT`
+  (по умолчанию 30 минут, настраивается).
+- `answered` — ответ получен и доставлен автору. Это конечное состояние.
 
-#### Code Comments
-All code comments must be written in **English**.
+Если получатель не ответил до дедлайна, назначение снимается, и вопрос
+возвращается в очередь. Этот получатель больше никогда не получит тот же вопрос.
 
-#### User-facing Messages
-All user-facing messages (replies, notifications, etc.) must be written in **Russian**.
+## Правила, которые нельзя нарушать
 
-Example:
-```javascript
+1. **Ответ разрешён всегда.** Если у пользователя есть назначенный ему вопрос,
+   любое его сообщение считается ответом на этот вопрос. Ответ ничем не
+   блокируется, в том числе тем, что сам пользователь ждёт ответа на свой
+   вопрос. Иначе пользователь никогда не освободится.
+2. **Один вопрос — один ответ.** Пока пользователь ждёт ответа, он не может
+   отправить новый вопрос.
+3. **У получателя не больше одного вопроса.** У пользователя может быть максимум
+   одно неотвеченное назначение. Занятые пользователи исключаются из выбора
+   получателя. Это ограничение **проверяется на уровне БД**: уникальный индекс
+   и выбор получателя в транзакции. Проверки только в коде приложения
+   недостаточно, потому что при параллельных отправках возможны гонки.
+4. **Ответ хранится отдельной записью.** Ответ — это новая запись в БД со
+   ссылкой на исходный вопрос. Вопрос переводится в `answered` в той же
+   транзакции. Никогда не «отвечать» простой сменой статуса: текст ответа
+   потеряется.
+5. **Очередь, а не отказ.** Если свободных получателей онлайн нет, вопрос не
+   отклоняется, а ставится в очередь. Очередь обрабатывается по принципу FIFO.
+   Когда пользователь освобождается или появляется онлайн, ему назначается
+   самый старый подходящий вопрос из очереди.
+6. **Кто может стать получателем.** Пользователь подходит, только если он:
+   - онлайн;
+   - не занят (правило 3);
+   - не является автором вопроса;
+   - ещё не получал этот вопрос и не упустил его по таймауту;
+   - не заблокирован автором вопроса (см. «Жалобы»).
+7. **Поздний ответ.** Если назначение снято по таймауту, сообщение пользователя
+   больше не считается ответом на этот вопрос. Пользователь получает
+   уведомление, что время на ответ истекло.
+
+### Порядок проверок при входящем сообщении от пользователя
+
+Порядок важен:
+1. У пользователя есть назначенный вопрос → это **ответ** (правило 1).
+2. Пользователь ждёт ответа на свой вопрос → **отказ** (правило 2).
+3. Иначе это **новый вопрос**: назначить его свободному получателю (правила 3
+   и 6), а если такого нет — поставить в очередь (правило 5).
+
+Проверка «это ответ?» всегда идёт первой. Иначе правила 2 и 3 заблокировали бы
+ответ, который правило 1 требует разрешить.
+
+## Жалобы (конец MVP)
+
+Модераторов пока нет, поэтому вместо модерации используется персональный чёрный
+список. Блокировка **односторонняя**: если пользователь A пожаловался на
+пользователя B, вопросы A больше никогда не назначаются B. В обратную сторону
+всё работает как раньше: вопросы B могут быть назначены A. С остальными
+пользователями B общается как обычно.
+
+## Компоненты
+
+Один бэкенд-сервис, внутри разбитый на модули:
+
+1. **Ядро (domain)** — вся бизнес-логика: правила выше, выбор получателя,
+   очередь, таймауты, присутствие (онлайн). Остальные компоненты работают только
+   через ядро и не обращаются к БД напрямую.
+2. **Хранилище** — PostgreSQL. Ключевые инварианты (правило 3) закреплены
+   ограничениями БД.
+3. **Доставка** — ядро публикует события («вопрос назначен», «получен ответ»,
+   «время истекло»), а адаптеры доставляют их в нужный канал: WebSocket или
+   Telegram.
+4. **Фоновый воркер** — следит за таймаутами и разбирает очередь.
+5. **API** — REST и WebSocket для веб-клиента и бэкофиса.
+6. **Веб-интерфейс** (React) — вход через Google, отправка вопроса, получение
+   вопроса и ответ на него, история своих вопросов и ответов.
+7. **Telegram-бот** — тот же сценарий в Telegram, работает через ядро.
+8. **Бэкофис** (React) — защищён логином и паролем из конфига. Позволяет:
+   - смотреть новых пользователей;
+   - читать переписки;
+   - управлять тестовыми пользователями и отправлять вопросы и ответы от их
+     имени, чтобы симулировать нескольких людей. Получатель при этом выбирается
+     по обычным правилам, а не вручную.
+
+### Черновая схема данных
+
+- `users` — `id`, `channel` (`web` | `telegram`), `google_sub` / `telegram_id`,
+  `alias`, `is_test`, `last_seen_at`, `created_at`
+- `messages` — `id`, `sender_id`, `text`, `reply_to_id` (только у ответов),
+  `status` (только у вопросов), `created_at`
+- `assignments` — `question_id`, `receiver_id`, `assigned_at`, `deadline_at`,
+  `outcome` (`answered` | `timed_out`). Хранит историю, по которой исключаются
+  повторные назначения (правило 6).
+- `blocks` — односторонние блокировки: `blocker_id` (кто пожаловался),
+  `blocked_id` (на кого). Вопросы `blocker_id` не назначаются `blocked_id`.
+
+## Будущие улучшения (после MVP, требуют исследования)
+
+1. Отправлять вопрос сразу нескольким получателям и брать первый ответ. При этом
+   нельзя поощрять гонку за скоростью: например, давать каждому по 5–10 минут.
+2. Рейтинг: автор оценивает полученный ответ, а пользователи с высоким
+   рейтингом получают больше вопросов.
+3. Диалоги (продолжение общения после ответа).
+4. Мобильные приложения.
+
+# Правила разработки
+
+## Язык и формат кода
+
+- **TypeScript** в режиме `strict`, ES-модули (`import` / `export`). CommonJS
+  (`require`, `module.exports`) не используется.
+- Комментарии в коде пишутся **на английском**.
+- Все сообщения для пользователей (ответы бота, уведомления, тексты интерфейса)
+  пишутся **на русском** и хранятся централизованно, а не разбросаны по коду.
+
+```ts
 // Comment in English
-const handleMessage = async (ctx) => {
-  // This is a comment in English
-  await ctx.reply('Добро пожаловать в бот для пересылки сообщений!'); // Message in Russian
-};
+await notify(user, texts.answerTimeoutExpired); // Russian text from a shared catalogue
 ```
 
+## Тесты
 
-## Dependencies
-- Use ES6 modules for all imports
-- All dependencies are defined in package.json
+Правила из раздела «Правила, которые нельзя нарушать» обязательно покрываются
+тестами на настоящей PostgreSQL, включая параллельные отправки (правило 3).
 
-## Architecture Overview
+## Конфигурация
 
-The project follows a backend-first architecture where:
+Значения задаются через переменные окружения и не хранятся в коде:
+`ANSWER_TIMEOUT`, `ONLINE_WINDOW`, учётные данные бэкофиса, токен бота, данные
+Google OAuth, строка подключения к БД.
 
-1. **Main Backend Service** (`src/backend/`) - node.js предоставляет общую бизнес логику работы с сообщениями, связь с БД (postgress)
-2. **Backoffice** (`src/backoffice`) - веб интерфейс на react для мониторинга новых юзеров, чтение переписок, возможность отправлять сообщения от имени конкретного юзера для тестирования, должен быть защищен логином\паролем которые задаются через конфиг
-4. **API Layer** (`src/api/`) - Exposes backend functionality through REST endpoints
-2. **Telegram Bot Interface** (`src/bot/`) - Optional interface to the main backend service
-3. **Web UI** (`src/web/`) - веб интерфейс на react для общения. Можно залогинться через гугл и читать, отправлять сообщения
+## Ещё не решено
 
-
-This architecture allows:
-- Testing and development through web interface
-- Simulating multiple users via web interface
-- Separation of concerns between Telegram interface and core logic
-- Easy integration with other systems through API
-
-
-## File Structure
-- All source code goes in `src/` directory
-- Main entry point is `src/index.js`
-- Backend API in `src/backend/`
-- Bot logic in `src/bot/`
-- Database logic in `src/database/`
-- Services in `src/services/`
-- Handlers in `src/bot/handlers/`
-- Web UI in `src/webui/`
-- API endpoints in `src/api/`
-
-## API Endpoints
-
-The following API endpoints are available:
-
-
-### Terms
-
-- **Unread message** — a message with `replied = FALSE` (the receiver has not answered).
-- **Awaiting reply** — the user has an outgoing message with `replied = FALSE`.
-- **Busy user** — the user has an unread *incoming* message.
-
-Note that "awaiting reply" and "busy" are **different states**: a user can be
-awaiting a reply to their own message while also being busy with someone else's.
-
-
-
-
-
+- Конкретные фреймворки, структура репозитория и хостинг обсуждаются на
+  следующем этапе.
