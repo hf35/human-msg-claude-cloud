@@ -1,0 +1,12 @@
+{
+  "name": "@human-msg/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@human-msg/shared": "workspace:*"
+  }
+}

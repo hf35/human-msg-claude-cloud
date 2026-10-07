@@ -12,6 +12,22 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  apps/server:
+    dependencies:
+      '@human-msg/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+
+  packages/core:
+    dependencies:
+      '@human-msg/shared':
+        specifier: workspace:*
+        version: link:../shared
+
+  packages/db: {}
+
+  packages/shared: {}
+
 packages:
 
   typescript@5.9.3:
