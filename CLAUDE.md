@@ -337,6 +337,10 @@ await notify(user, texts.answerTimeoutExpired); // Russian text from a shared ca
 PostgreSQL; два SPA на React + Vite (бэкофис на Refine + Ant Design); монорепо
 на pnpm; Docker Compose, в продакшене VPS.
 
+План работ разбит на маленькие задачи в [`docs/TASKS.md`](docs/TASKS.md).
+Задачи выполняются по порядку; выполненная задача отмечается `[x]` в том же
+коммите.
+
 ## Ещё не решено
 
 - Удаление аккаунта и срок хранения переписок.
