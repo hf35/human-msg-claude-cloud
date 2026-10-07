@@ -25,7 +25,7 @@
 - [x] **0.2 TypeScript.** Общий `tsconfig.base.json` (`strict`, ESM,
   `moduleResolution: bundler`/`nodenext`), project references.
   **Проверка:** `pnpm typecheck` проходит на пустых пакетах.
-- [ ] **0.3 Пустые пакеты.** `packages/shared`, `packages/db`, `packages/core`,
+- [x] **0.3 Пустые пакеты.** `packages/shared`, `packages/db`, `packages/core`,
   `apps/server` с `package.json`, `tsconfig.json` и `src/index.ts`.
   **Проверка:** `apps/server` импортирует функцию из `packages/core`, та — из
   `packages/shared`; `pnpm typecheck` зелёный.
