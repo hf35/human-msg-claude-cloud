@@ -29,7 +29,7 @@
   `apps/server` с `package.json`, `tsconfig.json` и `src/index.ts`.
   **Проверка:** `apps/server` импортирует функцию из `packages/core`, та — из
   `packages/shared`; `pnpm typecheck` зелёный.
-- [ ] **0.4 Линтер и форматтер.** ESLint (flat config, typescript-eslint) +
+- [x] **0.4 Линтер и форматтер.** ESLint (flat config, typescript-eslint) +
   Prettier; правило против `require`. Скрипты `pnpm lint`, `pnpm format`.
   **Проверка:** `pnpm lint` проходит; намеренная ошибка ловится.
 - [ ] **0.5 Тесты.** Vitest в корне с workspace-конфигом, пример теста в
