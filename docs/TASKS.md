@@ -22,7 +22,7 @@
 - [x] **0.1 Монорепо на pnpm.** Корневой `package.json`, `pnpm-workspace.yaml`
   (`apps/*`, `packages/*`), `.nvmrc` с Node LTS, `.editorconfig`.
   **Проверка:** `pnpm install` проходит без ошибок.
-- [ ] **0.2 TypeScript.** Общий `tsconfig.base.json` (`strict`, ESM,
+- [x] **0.2 TypeScript.** Общий `tsconfig.base.json` (`strict`, ESM,
   `moduleResolution: bundler`/`nodenext`), project references.
   **Проверка:** `pnpm typecheck` проходит на пустых пакетах.
 - [ ] **0.3 Пустые пакеты.** `packages/shared`, `packages/db`, `packages/core`,
