@@ -93,7 +93,7 @@ apps/
 packages/
   core/              # команды ядра, правила, выбор получателя
   db/                # схема Drizzle, миграции, клиент
-  shared/            # zod-схемы API, типы событий, тексты на русском
+  shared/            # zod-схемы API, типы событий, тексты (ru, en)
 docs/
   ARCHITECTURE.md
 docker-compose.yml
@@ -115,6 +115,7 @@ docker-compose.yml
 **`users`**
 - `id`, `channel` (`web` | `telegram`), `google_sub`, `telegram_id`
 - `alias` — анонимный псевдоним
+- `locale` — язык интерфейса и уведомлений (`ru` | `en`)
 - `is_test` (пул тестовых пользователей), `is_staff`
 - `receiving_enabled` — выключен ли режим «не беспокоить»
 - `bot_blocked_at` — когда Telegram сообщил о блокировке бота

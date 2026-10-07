@@ -248,8 +248,9 @@ queued ──(назначен свободному получателю)──�
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 - `users` — `id`, `channel` (`web` | `telegram`), `google_sub` / `telegram_id`,
-  `alias`, `is_test`, `is_staff`, `receiving_enabled` («не беспокоить»),
-  `bot_blocked_at`, `last_seen_at`, `cooldown_until`, `created_at`
+  `alias`, `locale` (`ru` | `en`), `is_test`, `is_staff`,
+  `receiving_enabled` («не беспокоить»), `bot_blocked_at`, `last_seen_at`,
+  `cooldown_until`, `created_at`
 - `questions` — `id`, `author_id`, `text`, `status`, `expires_at`,
   `created_at`
 - `answers` — `id`, `question_id` (уникален), `author_id`, `text`,
@@ -288,11 +289,17 @@ queued ──(назначен свободному получателю)──�
   (`require`, `module.exports`) не используется.
 - Комментарии в коде пишутся **на английском**.
 - Все сообщения для пользователей (ответы бота, уведомления, тексты интерфейса)
-  пишутся **на русском** и хранятся централизованно, а не разбросаны по коду.
+  существуют на **двух языках: русском (`ru`) и английском (`en`)**. Они хранятся
+  централизованно в `packages/shared/src/texts`, а не разбросаны по коду. Язык
+  по умолчанию — русский. Новый текст добавляется сразу в обе локали: пропущенный
+  ключ — ошибка компиляции, а тест следит, чтобы в английском не было кириллицы.
+- Язык хранится у пользователя (`users.locale`). Определение языка: в Telegram по
+  `language_code`, в вебе по языку браузера с возможностью переключить.
 
 ```ts
 // Comment in English
-await notify(user, texts.answerTimeoutExpired); // Russian text from a shared catalogue
+const t = getTexts(user.locale); // texts of the user's language from the shared catalogue
+await notify(user, t.notifications.assignmentExpired);
 ```
 
 ## Тесты
