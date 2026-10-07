@@ -1,0 +1,5 @@
+node_modules
+dist
+pnpm-lock.yaml
+# Documentation is wrapped by hand
+*.md
