@@ -114,7 +114,7 @@ docker-compose.yml
 
 **`users`**
 - `id`, `channel` (`web` | `telegram`), `google_sub`, `telegram_id`
-- `alias` — анонимный псевдоним
+- `alias` — анонимный псевдоним на языке пользователя при регистрации, не уникален
 - `locale` — язык интерфейса и уведомлений (`ru` | `en`)
 - `is_test` (пул тестовых пользователей), `is_staff`
 - `receiving_enabled` — выключен ли режим «не беспокоить»
