@@ -244,11 +244,16 @@ queued ──(назначен свободному получателю)──�
 
 ### Черновая схема данных
 
+Полная схема с индексами и ограничениями — в
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 - `users` — `id`, `channel` (`web` | `telegram`), `google_sub` / `telegram_id`,
   `alias`, `is_test`, `is_staff`, `receiving_enabled` («не беспокоить»),
   `bot_blocked_at`, `last_seen_at`, `cooldown_until`, `created_at`
-- `messages` — `id`, `sender_id`, `text`, `reply_to_id` (только у ответов),
-  `status` и `expires_at` (только у вопросов), `created_at`
+- `questions` — `id`, `author_id`, `text`, `status`, `expires_at`,
+  `created_at`
+- `answers` — `id`, `question_id` (уникален), `author_id`, `text`,
+  `created_at`
 - `assignments` — `question_id`, `receiver_id`, `assigned_at`, `deadline_at`,
   `reminded_at`, `outcome` (`answered` | `timed_out` | `skipped` |
   `reported` | `undeliverable`). Хранит
@@ -324,8 +329,14 @@ await notify(user, texts.answerTimeoutExpired); // Russian text from a shared ca
 назначения — в момент назначения, а `cooldown_until` — в момент окончания
 назначения.
 
+## Архитектура и стек
+
+Как устроена система (стек, структура репозитория, модель данных, доставка,
+воркер, API, деплой), описано в [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Кратко: модульный монолит на TypeScript — Fastify, grammY, Drizzle,
+PostgreSQL; два SPA на React + Vite (бэкофис на Refine + Ant Design); монорепо
+на pnpm; Docker Compose, в продакшене VPS.
+
 ## Ещё не решено
 
-- Конкретные фреймворки, структура репозитория и хостинг обсуждаются на
-  следующем этапе.
 - Удаление аккаунта и срок хранения переписок.
