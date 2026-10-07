@@ -34,7 +34,7 @@
   **Проверка:** `pnpm lint` проходит; намеренная ошибка ловится.
 - [x] **0.5 Тесты.** Vitest в корне с workspace-конфигом, пример теста в
   `packages/shared`. **Проверка:** `pnpm test` запускает и проходит.
-- [ ] **0.6 Docker Compose для разработки.** Сервис `postgres` с volume и
+- [x] **0.6 Docker Compose для разработки.** Сервис `postgres` с volume и
   healthcheck, `.env.example`. **Проверка:** `docker compose up -d` →
   `pg_isready` успешен.
 - [ ] **0.7 CI.** GitHub Actions: install → typecheck → lint → test (с
