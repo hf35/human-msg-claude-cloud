@@ -32,7 +32,7 @@
 - [x] **0.4 Линтер и форматтер.** ESLint (flat config, typescript-eslint) +
   Prettier; правило против `require`. Скрипты `pnpm lint`, `pnpm format`.
   **Проверка:** `pnpm lint` проходит; намеренная ошибка ловится.
-- [ ] **0.5 Тесты.** Vitest в корне с workspace-конфигом, пример теста в
+- [x] **0.5 Тесты.** Vitest в корне с workspace-конфигом, пример теста в
   `packages/shared`. **Проверка:** `pnpm test` запускает и проходит.
 - [ ] **0.6 Docker Compose для разработки.** Сервис `postgres` с volume и
   healthcheck, `.env.example`. **Проверка:** `docker compose up -d` →
