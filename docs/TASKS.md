@@ -19,7 +19,7 @@
 
 ## Этап 0. Каркас репозитория
 
-- [ ] **0.1 Монорепо на pnpm.** Корневой `package.json`, `pnpm-workspace.yaml`
+- [x] **0.1 Монорепо на pnpm.** Корневой `package.json`, `pnpm-workspace.yaml`
   (`apps/*`, `packages/*`), `.nvmrc` с Node LTS, `.editorconfig`.
   **Проверка:** `pnpm install` проходит без ошибок.
 - [ ] **0.2 TypeScript.** Общий `tsconfig.base.json` (`strict`, ESM,
