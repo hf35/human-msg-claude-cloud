@@ -37,7 +37,7 @@
 - [x] **0.6 Docker Compose для разработки.** Сервис `postgres` с volume и
   healthcheck, `.env.example`. **Проверка:** `docker compose up -d` →
   `pg_isready` успешен.
-- [ ] **0.7 CI.** GitHub Actions: install → typecheck → lint → test (с
+- [x] **0.7 CI.** GitHub Actions: install → typecheck → lint → test (с
   Postgres-сервисом). **Проверка:** зелёный прогон на ветке.
 - [ ] **0.8 Хук сессии Claude Code.** SessionStart-хук, который ставит
   зависимости, чтобы в облачных сессиях работали тесты и линтер.
