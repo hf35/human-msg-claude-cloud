@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { randomAlias, type RandomSource } from './index';
-import {
-  enAdjectives,
-  enAnimals,
-  ruAdjectives,
-  ruFeminineAnimals,
-  ruMasculineAnimals,
-} from './words';
+import { enAdjectives, enAnimals, ruAdjectives, ruAnimals } from './words';
 
 // Small deterministic generator, so that failures are reproducible
 function seeded(seed: number): RandomSource {
@@ -20,80 +14,68 @@ function seeded(seed: number): RandomSource {
 }
 
 const CYRILLIC = /[А-Яа-яЁё]/;
-const DRAWS = 5000;
 
-function draw(locale: string, count = DRAWS): string[] {
+function draw(locale: string, count: number): string[] {
   const random = seeded(42);
   return Array.from({ length: count }, () => randomAlias(locale, random));
 }
 
 describe('word lists', () => {
-  it('have no duplicates and no empty words', () => {
-    const lists = {
-      ruAdjectiveMasculine: ruAdjectives.map((a) => a.masculine),
-      ruAdjectiveFeminine: ruAdjectives.map((a) => a.feminine),
-      ruMasculineAnimals: [...ruMasculineAnimals],
-      ruFeminineAnimals: [...ruFeminineAnimals],
-      enAdjectives: [...enAdjectives],
-      enAnimals: [...enAnimals],
-    };
+  const lists = { ruAdjectives, ruAnimals, enAdjectives, enAnimals };
+
+  it('are large enough, have no duplicates and no empty words', () => {
     for (const [name, words] of Object.entries(lists)) {
-      expect(words.length, name).toBeGreaterThan(10);
+      expect(words.length, name).toBeGreaterThanOrEqual(90);
       expect(new Set(words).size, `${name}: duplicates`).toBe(words.length);
       for (const word of words) expect(word.trim(), name).not.toBe('');
     }
   });
 
-  it('give every Russian adjective two different forms', () => {
-    for (const adjective of ruAdjectives) {
-      expect(adjective.feminine).not.toBe(adjective.masculine);
+  it('keep the languages apart', () => {
+    for (const word of [...ruAdjectives, ...ruAnimals]) expect(word).toMatch(/^[А-Яа-яЁё]+$/);
+    for (const word of [...enAdjectives, ...enAnimals]) expect(word).toMatch(/^[A-Za-z]+$/);
+  });
+
+  it('are capitalised single words', () => {
+    for (const word of Object.values(lists).flat()) {
+      expect(word).toMatch(/^\p{Lu}\p{Ll}+$/u);
     }
   });
 });
 
 describe('randomAlias', () => {
-  it('builds "Adjective Animal" from two capitalised words', () => {
-    for (const locale of ['ru', 'en']) {
-      for (const alias of draw(locale, 200)) {
-        expect(alias).toMatch(/^\p{Lu}\p{Ll}+ \p{Lu}\p{Ll}+$/u);
-      }
-    }
-  });
-
-  it('agrees the Russian adjective with the gender of the animal', () => {
-    const masculine = new Set(ruAdjectives.map((a) => a.masculine));
-    const feminine = new Set(ruAdjectives.map((a) => a.feminine));
-    const seen = { masculine: 0, feminine: 0 };
-
-    for (const alias of draw('ru')) {
+  it('builds "Adjective Animal" from the lists of the language', () => {
+    for (const alias of draw('ru', 500)) {
       const [adjective, animal] = alias.split(' ') as [string, string];
-      if (ruMasculineAnimals.includes(animal)) {
-        expect(masculine.has(adjective), alias).toBe(true);
-        seen.masculine++;
-      } else {
-        expect(ruFeminineAnimals.includes(animal), alias).toBe(true);
-        expect(feminine.has(adjective), alias).toBe(true);
-        seen.feminine++;
-      }
+      expect(ruAdjectives, alias).toContain(adjective);
+      expect(ruAnimals, alias).toContain(animal);
     }
-    // Both genders really occur
-    expect(seen.masculine).toBeGreaterThan(0);
-    expect(seen.feminine).toBeGreaterThan(0);
+    for (const alias of draw('en', 500)) {
+      const [adjective, animal] = alias.split(' ') as [string, string];
+      expect(enAdjectives, alias).toContain(adjective);
+      expect(enAnimals, alias).toContain(animal);
+    }
   });
 
   it('uses only English words for English and only Cyrillic for Russian', () => {
-    for (const alias of draw('en', 500)) {
-      expect(alias).not.toMatch(CYRILLIC);
-      const [adjective, animal] = alias.split(' ') as [string, string];
-      expect(enAdjectives).toContain(adjective);
-      expect(enAnimals).toContain(animal);
-    }
+    for (const alias of draw('en', 500)) expect(alias).not.toMatch(CYRILLIC);
     for (const alias of draw('ru', 500)) expect(alias).toMatch(/^[А-Яа-яЁё ]+$/);
   });
 
   it('gives plenty of variety', () => {
+    // 90+ x 90+ combinations: 2000 draws should give well over a thousand different aliases
     for (const locale of ['ru', 'en']) {
-      expect(new Set(draw(locale, 1000)).size, locale).toBeGreaterThan(300);
+      expect(new Set(draw(locale, 2000)).size, locale).toBeGreaterThan(1200);
+    }
+  });
+
+  it('reaches the whole word lists', () => {
+    for (const [locale, adjectives, animals] of [
+      ['ru', ruAdjectives, ruAnimals],
+      ['en', enAdjectives, enAnimals],
+    ] as const) {
+      const seen = new Set(draw(locale, 20000).flatMap((alias) => alias.split(' ')));
+      for (const word of [...adjectives, ...animals]) expect(seen.has(word), word).toBe(true);
     }
   });
 

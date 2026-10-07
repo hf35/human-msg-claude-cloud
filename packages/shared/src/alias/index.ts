@@ -1,11 +1,5 @@
 import { DEFAULT_LOCALE, isLocale, type Locale } from '../texts';
-import {
-  enAdjectives,
-  enAnimals,
-  ruAdjectives,
-  ruFeminineAnimals,
-  ruMasculineAnimals,
-} from './words';
+import { enAdjectives, enAnimals, ruAdjectives, ruAnimals } from './words';
 
 /** Returns a number in [0, 1), like `Math.random`. Injectable to make tests deterministic. */
 export type RandomSource = () => number;
@@ -18,16 +12,7 @@ function pick<T>(list: readonly T[], random: RandomSource): T {
 }
 
 function ruAlias(random: RandomSource): string {
-  // Every animal is equally likely, whatever its gender
-  const animal = pick(
-    [
-      ...ruMasculineAnimals.map((name) => ({ name, feminine: false })),
-      ...ruFeminineAnimals.map((name) => ({ name, feminine: true })),
-    ],
-    random,
-  );
-  const adjective = pick(ruAdjectives, random);
-  return `${animal.feminine ? adjective.feminine : adjective.masculine} ${animal.name}`;
+  return `${pick(ruAdjectives, random)} ${pick(ruAnimals, random)}`;
 }
 
 function enAlias(random: RandomSource): string {
