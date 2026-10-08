@@ -4,6 +4,7 @@ export * from './result';
 export * from './settings';
 export * from './users';
 export * from './availability';
+export * from './queue';
 export * from './outbox';
 export * from './matching';
 export * from './questions';

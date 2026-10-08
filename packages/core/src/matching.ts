@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { userIsAvailable } from './availability';
+import { userIsAvailable } from './user-available';
 import type { CommandContext } from './context';
 
 /** The question a receiver is being picked for. */
