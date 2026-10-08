@@ -1,3 +1,4 @@
+import type { Tx } from '@human-msg/db';
 import { sql } from 'drizzle-orm';
 import { userIsAvailable } from './user-available';
 import type { CommandContext } from './context';
@@ -6,6 +7,40 @@ import type { CommandContext } from './context';
 export interface QuestionToAssign {
   id: string;
   authorId: string;
+}
+
+/** Candidates tried before giving up when each one turns out to be taken by a parallel command. */
+const MAX_PICK_ATTEMPTS = 5;
+
+/**
+ * Whether a user whose row this transaction has locked can receive a question right now:
+ * not staff, available, not busy, not on cooldown. It runs as a statement of its own, after the
+ * lock, so it sees everything that parallel commands committed before the lock was granted;
+ * the picking queries cannot promise that, because they decide and lock in one statement.
+ */
+export async function lockedUserIsFree(ctx: CommandContext, userId: string): Promise<boolean> {
+  const rows = await ctx.tx.execute(sql`
+    SELECT 1 FROM "users"
+    WHERE "users"."id" = ${userId}
+      AND "users"."is_staff" = false
+      AND ${userIsAvailable}
+      AND NOT EXISTS (
+        SELECT 1 FROM "assignments"
+        WHERE "assignments"."receiver_id" = "users"."id" AND "assignments"."outcome" IS NULL)
+      AND ("users"."cooldown_until" IS NULL OR "users"."cooldown_until" <= ${ctx.time.now()})`);
+  return rows.rows.length > 0;
+}
+
+/**
+ * Locks a user's row for the rest of the transaction. Commands that end or change an
+ * assignment take this lock before the assignment's own lock, so they all lock in the same
+ * order and cannot deadlock. `NO KEY UPDATE` does not block inserts that refer to the user.
+ */
+export async function lockUser(tx: Tx, userId: string): Promise<boolean> {
+  const rows = await tx.execute(
+    sql`SELECT 1 FROM "users" WHERE "users"."id" = ${userId} FOR NO KEY UPDATE`,
+  );
+  return rows.rows.length > 0;
 }
 
 /**
@@ -22,9 +57,24 @@ export interface QuestionToAssign {
  * - not blocked for this author's questions (`blocks`).
  *
  * The lock is held until the transaction ends, so the caller must insert the assignment in the
- * same transaction. The unique index on active assignments still backs this up.
+ * same transaction. The query decides and locks in one statement, so a parallel command may have
+ * given the candidate a question just before the lock was granted; the candidate is therefore
+ * checked again once locked (`lockedUserIsFree`) and another one is tried if needed. The unique
+ * index on active assignments is the last line of defence (rule 3).
  */
 export async function findReceiver(
+  ctx: CommandContext,
+  question: QuestionToAssign,
+): Promise<string | undefined> {
+  for (let attempt = 0; attempt < MAX_PICK_ATTEMPTS; attempt++) {
+    const picked = await pickCandidate(ctx, question);
+    if (picked === undefined) return undefined;
+    if (await lockedUserIsFree(ctx, picked)) return picked;
+  }
+  return undefined;
+}
+
+async function pickCandidate(
   ctx: CommandContext,
   question: QuestionToAssign,
 ): Promise<string | undefined> {
@@ -50,6 +100,6 @@ export async function findReceiver(
           AND "blocks"."receiver_id" = "users"."id")
     ORDER BY random()
     LIMIT 1
-    FOR UPDATE OF "users" SKIP LOCKED`);
+    FOR NO KEY UPDATE OF "users" SKIP LOCKED`);
   return result.rows[0]?.id;
 }

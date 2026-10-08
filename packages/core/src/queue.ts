@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { CommandContext } from './context';
+import { lockedUserIsFree } from './matching';
 import { assignQuestion } from './questions';
-import { userIsAvailable } from './user-available';
 
 /**
  * The reverse of `findReceiver`: a user who just became a suitable receiver (connected,
@@ -22,20 +22,11 @@ export async function assignFromQueue(
   const now = time.now();
 
   const locked = await tx.execute(
-    sql`SELECT "users"."id" FROM "users" WHERE "users"."id" = ${userId} FOR UPDATE SKIP LOCKED`,
+    sql`SELECT "users"."id" FROM "users" WHERE "users"."id" = ${userId}
+      FOR NO KEY UPDATE SKIP LOCKED`,
   );
   if (locked.rows.length === 0) return undefined;
-
-  const eligible = await tx.execute(sql`
-    SELECT 1 FROM "users"
-    WHERE "users"."id" = ${userId}
-      AND "users"."is_staff" = false
-      AND ${userIsAvailable}
-      AND NOT EXISTS (
-        SELECT 1 FROM "assignments"
-        WHERE "assignments"."receiver_id" = "users"."id" AND "assignments"."outcome" IS NULL)
-      AND ("users"."cooldown_until" IS NULL OR "users"."cooldown_until" <= ${now})`);
-  if (eligible.rows.length === 0) return undefined;
+  if (!(await lockedUserIsFree(ctx, userId))) return undefined;
 
   const picked = await tx.execute<{ id: string; text: string; author_id: string }>(sql`
     SELECT "questions"."id", "questions"."text", "questions"."author_id" FROM "questions"
@@ -55,7 +46,7 @@ export async function assignFromQueue(
           AND "blocks"."receiver_id" = ${userId})
     ORDER BY "questions"."created_at", "questions"."id"
     LIMIT 1
-    FOR UPDATE OF "questions" SKIP LOCKED`);
+    FOR NO KEY UPDATE OF "questions" SKIP LOCKED`);
   const question = picked.rows[0];
   if (!question) return undefined;
 
