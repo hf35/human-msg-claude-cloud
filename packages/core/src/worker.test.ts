@@ -8,7 +8,12 @@ import { createCore } from './core';
 import { assignFromQueue } from './queue';
 import { ok } from './result';
 import { askQuestion, skipAssignment, submitAnswer } from './questions';
-import { processDeadlines, processExpiredQuestions, processReminders } from './worker';
+import {
+  processDeadlines,
+  processExpiredQuestions,
+  processQueue,
+  processReminders,
+} from './worker';
 
 let testDb: TestDatabase;
 const time = createManualTime();
@@ -270,5 +275,57 @@ describe('processExpiredQuestions', () => {
       id: questionId,
       status: 'expired',
     });
+  });
+});
+
+describe('processQueue', () => {
+  const HOUR = 60 * MINUTE;
+
+  it('assigns a queued question when the only receiver cooldown is over', async () => {
+    const asker1 = await createUser({ receivingEnabled: false });
+    const receiver = await createUser();
+    const first = await ask(asker1.id);
+    await core().run((ctx) => submitAnswer(ctx, receiver.id, 'Done')); // cooldown 1 hour
+    const asker2 = await createUser({ receivingEnabled: false });
+    const second = await ask(asker2.id);
+    expect(
+      (await testDb.db.select().from(questions).where(eq(questions.id, second)))[0]!.status,
+    ).toBe('queued');
+    expect(first).not.toBe(second);
+
+    time.advance(30 * MINUTE);
+    expect(await processQueue(core())).toBe(0);
+
+    time.advance(31 * MINUTE);
+    expect(await processQueue(core())).toBe(1);
+    expect(await processQueue(core())).toBe(0);
+    const [assignment] = await historyOf(second);
+    expect(assignment).toMatchObject({ receiverId: receiver.id, outcome: null });
+    expect((await eventsOf(receiver.id)).map((e) => e.type)).toContain('question.assigned');
+  });
+
+  it('serves the oldest question first when there is one free receiver', async () => {
+    const a1 = await createUser({ receivingEnabled: false });
+    const a2 = await createUser({ receivingEnabled: false });
+    const older = await ask(a1.id);
+    time.advance(MINUTE);
+    const newer = await ask(a2.id);
+    const receiver = await createUser();
+
+    expect(await processQueue(core())).toBe(1);
+
+    expect(await historyOf(older)).toMatchObject([{ receiverId: receiver.id }]);
+    expect(await historyOf(newer)).toHaveLength(0);
+  });
+
+  it('leaves expired and unmatched questions alone', async () => {
+    const author = await createUser({ receivingEnabled: false });
+    const questionId = await ask(author.id);
+    expect(await processQueue(core())).toBe(0);
+
+    await createUser();
+    time.advance(3 * HOUR + MINUTE);
+    expect(await processQueue(core())).toBe(0);
+    expect(await historyOf(questionId)).toHaveLength(0);
   });
 });
