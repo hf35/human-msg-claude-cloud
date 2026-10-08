@@ -75,7 +75,7 @@
 - [x] **2.1 Подключение Drizzle.** Клиент `pg` + Drizzle в `packages/db`,
   конфиг drizzle-kit, чтение `DATABASE_URL`. **Проверка:** скрипт
   `pnpm db:check` выполняет `select 1`.
-- [ ] **2.2 Таблица `users`.** Все поля из `ARCHITECTURE.md` (в том числе
+- [x] **2.2 Таблица `users`.** Все поля из `ARCHITECTURE.md` (в том числе
   `locale`), уникальность `google_sub`, `telegram_id` и `alias`. Первая
   миграция. **Проверка:** `pnpm db:migrate` создаёт таблицу.
 - [ ] **2.3 Таблицы `questions` и `answers`.** Статусы через enum или check,
