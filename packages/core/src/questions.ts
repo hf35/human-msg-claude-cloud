@@ -1,5 +1,5 @@
 import { assignments, questions, users, type Tx } from '@human-msg/db';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, count, eq, gt, inArray, sql } from 'drizzle-orm';
 import type { CommandContext } from './context';
 import { findReceiver } from './matching';
 import { emit } from './outbox';
@@ -20,6 +20,20 @@ export async function hasPendingQuestion(tx: Tx, userId: string): Promise<boolea
     .where(and(eq(questions.authorId, userId), inArray(questions.status, ['queued', 'assigned'])))
     .limit(1);
   return rows.length > 0;
+}
+
+/** Rule 10: questions the user asked within the last 24 hours (a sliding window). */
+export async function countRecentQuestions(ctx: CommandContext, userId: string): Promise<number> {
+  const [row] = await ctx.tx
+    .select({ total: count() })
+    .from(questions)
+    .where(
+      and(
+        eq(questions.authorId, userId),
+        gt(questions.createdAt, sql`${ctx.time.now()} - interval '24 hours'`),
+      ),
+    );
+  return row!.total;
 }
 
 /**
@@ -64,17 +78,22 @@ export async function assignQuestion(
  *
  * Rule 2: refused with `awaiting_answer` while the author has a question that is still `queued`
  * or `assigned`. The partial unique index decides races between parallel sends.
+ * Rule 10: refused with `daily_limit` after `QUESTIONS_PER_DAY` questions within 24 hours.
+ * Answers never count and are never limited.
  */
 export async function askQuestion(
   ctx: CommandContext,
   authorId: string,
   text: string,
-): Promise<Result<AskedQuestion, 'user_not_found' | 'awaiting_answer'>> {
+): Promise<Result<AskedQuestion, 'user_not_found' | 'awaiting_answer' | 'daily_limit'>> {
   const { tx, time, settings } = ctx;
   const [author] = await tx.select({ id: users.id }).from(users).where(eq(users.id, authorId));
   if (!author) return fail('user_not_found');
 
   if (await hasPendingQuestion(tx, authorId)) return fail('awaiting_answer');
+  if ((await countRecentQuestions(ctx, authorId)) >= settings.QUESTIONS_PER_DAY) {
+    return fail('daily_limit');
+  }
 
   // A parallel send by the same author passes the check above; the unique index then skips the
   // insert instead of failing the transaction
