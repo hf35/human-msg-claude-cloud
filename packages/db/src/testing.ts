@@ -40,6 +40,9 @@ export async function createTestDatabase(
   const url = new URL(baseUrl);
   url.pathname = `/${name}`;
   const pool = createPool(url.toString());
+  // `close` drops the database with FORCE, which can cut an idle connection before the pool has
+  // finished closing it; without a handler that error would crash the whole test run
+  pool.on('error', () => {});
   const db = createDb(pool);
   await runMigrations(db);
 
