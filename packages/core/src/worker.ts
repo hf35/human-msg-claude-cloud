@@ -1,4 +1,4 @@
-import { assignments } from '@human-msg/db';
+import { assignments, questions } from '@human-msg/db';
 import { and, asc, eq, gt, isNull, lte, sql } from 'drizzle-orm';
 import type { Core } from './core';
 import { lockUser } from './matching';
@@ -175,6 +175,58 @@ export async function processReminders(core: Core): Promise<number> {
   let done = 0;
   for (const id of due.value) {
     const result = await core.run(async (ctx) => ok(await remindAssignment(ctx, id)));
+    if (result.ok && result.value) done++;
+  }
+  return done;
+}
+
+/** Ids of queued questions whose lifetime is over, oldest first. */
+export async function findExpiredQuestionIds(
+  ctx: CommandContext,
+  limit = WORKER_BATCH_SIZE,
+): Promise<string[]> {
+  const rows = await ctx.tx
+    .select({ id: questions.id })
+    .from(questions)
+    .where(and(eq(questions.status, 'queued'), lte(questions.expiresAt, ctx.time.now())))
+    .orderBy(asc(questions.expiresAt))
+    .limit(limit);
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Moves one queued question whose `expires_at` has passed to `expired` and tells the author that
+ * nobody managed to answer. Only `queued` questions expire: an assigned question keeps its
+ * receiver's full `ANSWER_TIMEOUT` and, if that ends without an answer, comes back to the queue
+ * and expires on the next pass. Returns `false` when there was nothing to do.
+ */
+export async function expireQuestion(ctx: CommandContext, questionId: string): Promise<boolean> {
+  const { tx, time } = ctx;
+  const [question] = await tx
+    .select({ id: questions.id, authorId: questions.authorId })
+    .from(questions)
+    .where(
+      and(
+        eq(questions.id, questionId),
+        eq(questions.status, 'queued'),
+        lte(questions.expiresAt, time.now()),
+      ),
+    )
+    .for('no key update', { skipLocked: true });
+  if (!question) return false;
+
+  await tx.update(questions).set({ status: 'expired' }).where(eq(questions.id, question.id));
+  await emit(tx, question.authorId, { type: 'question.expired', questionId: question.id });
+  return true;
+}
+
+/** Worker step 3: expires the queued questions that ran out of time. Returns how many. */
+export async function processExpiredQuestions(core: Core): Promise<number> {
+  const due = await core.run(async (ctx) => ok(await findExpiredQuestionIds(ctx)));
+  if (!due.ok) return 0;
+  let done = 0;
+  for (const id of due.value) {
+    const result = await core.run(async (ctx) => ok(await expireQuestion(ctx, id)));
     if (result.ok && result.value) done++;
   }
   return done;
