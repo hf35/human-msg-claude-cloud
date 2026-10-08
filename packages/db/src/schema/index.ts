@@ -1,4 +1,8 @@
-// Tables are added one by one in the following tasks (stage 2)
 export * from './assignments';
+export * from './blocks';
+export * from './outbox';
 export * from './questions';
+export * from './sessions';
+export * from './settings';
 export * from './users';
+export * from './web-connections';

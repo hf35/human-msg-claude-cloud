@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { check, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 export const QUESTION_STATUSES = ['queued', 'assigned', 'answered', 'expired'] as const;
@@ -31,6 +31,10 @@ export const questions = pgTable(
       'questions_answered_at_matches_status',
       sql`(${table.status} = 'answered') = (${table.answeredAt} IS NOT NULL)`,
     ),
+    // Rule 2: an author has at most one question waiting for an answer
+    uniqueIndex('questions_one_pending_per_author_idx')
+      .on(table.authorId)
+      .where(sql`${table.status} IN ('queued', 'assigned')`),
     // FIFO queue
     index('questions_queue_idx')
       .on(table.createdAt)
