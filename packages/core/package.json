@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@human-msg/db": "workspace:*",
-    "@human-msg/shared": "workspace:*"
+    "@human-msg/shared": "workspace:*",
+    "drizzle-orm": "^0.45.3"
   }
 }
