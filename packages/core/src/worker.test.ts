@@ -5,8 +5,10 @@ import { DEFAULT_SETTINGS } from '@human-msg/shared';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createCore } from './core';
+import { assignFromQueue } from './queue';
+import { ok } from './result';
 import { askQuestion, skipAssignment, submitAnswer } from './questions';
-import { processDeadlines, processReminders } from './worker';
+import { processDeadlines, processExpiredQuestions, processReminders } from './worker';
 
 let testDb: TestDatabase;
 const time = createManualTime();
@@ -214,5 +216,59 @@ describe('processReminders', () => {
     expect(await processReminders(core())).toBe(1);
     expect(await remindersOf(first.id)).toHaveLength(1);
     expect(await remindersOf(second.id)).toHaveLength(1);
+  });
+});
+
+describe('processExpiredQuestions', () => {
+  const HOUR = 60 * MINUTE;
+
+  it('expires a queued question after QUESTION_TTL and tells the author', async () => {
+    const author = await createUser();
+    const questionId = await ask(author.id); // nobody to receive it: queued
+
+    time.advance(2 * HOUR);
+    expect(await processExpiredQuestions(core())).toBe(0);
+    time.advance(HOUR + MINUTE);
+    expect(await processExpiredQuestions(core())).toBe(1);
+    expect(await processExpiredQuestions(core())).toBe(0);
+
+    const [question] = await testDb.db.select().from(questions);
+    expect(question).toMatchObject({ id: questionId, status: 'expired' });
+    const events = (await eventsOf(author.id)).filter((e) => e.type === 'question.expired');
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toMatchObject({ questionId });
+  });
+
+  /** The question waits in the queue, then is handed over 15 minutes before its lifetime ends. */
+  async function lateAssignment() {
+    const author = await createUser();
+    const questionId = await ask(author.id);
+    time.advance(3 * HOUR - 15 * MINUTE);
+    const receiver = await createUser();
+    await core().run(async (ctx) => ok(await assignFromQueue(ctx, receiver.id)));
+    expect((await testDb.db.select().from(questions))[0]!.status).toBe('assigned');
+    return { questionId, receiver };
+  }
+
+  it('does not expire an assigned question; the receiver may still answer after TTL', async () => {
+    const { questionId, receiver } = await lateAssignment();
+    time.advance(20 * MINUTE); // TTL is over, the receiver has 25 more minutes
+    expect(await processExpiredQuestions(core())).toBe(0);
+    const answered = await core().run((ctx) => submitAnswer(ctx, receiver.id, 'Just in time'));
+    expect(answered).toMatchObject({ ok: true, value: { questionId } });
+    expect((await testDb.db.select().from(questions))[0]!.status).toBe('answered');
+  });
+
+  it('expires the question once the full term of its receiver ends unanswered', async () => {
+    const { questionId } = await lateAssignment();
+    time.advance(46 * MINUTE);
+    await processDeadlines(core());
+    // Back in the queue, but its lifetime is over: nobody gets it any more
+    expect((await testDb.db.select().from(questions))[0]!.status).toBe('queued');
+    expect(await processExpiredQuestions(core())).toBe(1);
+    expect((await testDb.db.select().from(questions))[0]).toMatchObject({
+      id: questionId,
+      status: 'expired',
+    });
   });
 });
