@@ -15,6 +15,13 @@
       "when": 1791443671166,
       "tag": "0001_questions_answers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791444120499,
+      "tag": "0002_assignments",
+      "breakpoints": true
     }
   ]
 }
