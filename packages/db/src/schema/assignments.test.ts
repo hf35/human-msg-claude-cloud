@@ -3,7 +3,7 @@ import { createDb, createPool } from '../client';
 import { runMigrations } from '../migrate';
 import { assignments, type NewAssignment } from './assignments';
 import { questions } from './questions';
-import { users } from './users';
+import { users, type User } from './users';
 
 const pool = createPool(
   process.env.DATABASE_URL ?? 'postgres://humanmsg:humanmsg@localhost:5432/humanmsg',
@@ -43,23 +43,22 @@ async function fixture(tx: Tx) {
   const people = await tx
     .insert(users)
     .values(
-      ['A', 'B', 'C'].map((name) => ({
+      ['A', 'B', 'C', 'D'].map((name) => ({
         channel: 'web' as const,
         alias: `Assign ${name}`,
         googleSub: `assign-${name}`,
       })),
     )
     .returning();
-  const [author, r1, r2] = people as [(typeof people)[0], (typeof people)[0], (typeof people)[0]];
+  const [author1, r1, r2, author2] = people as [User, User, User, User];
   const qs = await tx
     .insert(questions)
     .values(
-      [1, 2].map((n) => ({
+      // An author can have only one pending question, so each question has its own author
+      [author1, author2].map((author, n) => ({
         authorId: author.id,
-        text: `Question ${n}`,
+        text: `Question ${n + 1}`,
         expiresAt: new Date(Date.now() + 3600_000),
-        // Only one pending question per author is enforced later (task 2.5)
-        status: 'queued' as const,
       })),
     )
     .returning();
