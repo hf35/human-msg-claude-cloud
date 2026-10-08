@@ -1,20 +1,11 @@
 import { users, webConnections, type Tx } from '@human-msg/db';
-import { eq, sql, type SQL } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { CommandContext } from './context';
+import { assignFromQueue } from './queue';
 import { fail, ok, type Result } from './result';
+import { userIsAvailable } from './user-available';
 
-// Column names are written out in full: Drizzle drops the table prefix of columns in a
-// single-table query, which would make the subquery compare web_connections with itself.
-/**
- * SQL condition "the user can receive a question right now", for the `users` table. The single
- * definition of availability (CLAUDE.md, "Термины"), shared by `isAvailable` and by the query
- * that picks a receiver:
- * - web: at least one open WebSocket connection;
- * - Telegram: "do not disturb" is off and the bot is not blocked. Activity does not matter.
- */
-export const userIsAvailable: SQL<boolean> = sql<boolean>`(CASE WHEN "users"."channel" = 'web'
-  THEN EXISTS (SELECT 1 FROM "web_connections" WHERE "web_connections"."user_id" = "users"."id")
-  ELSE "users"."receiving_enabled" AND "users"."bot_blocked_at" IS NULL END)`;
+export { userIsAvailable } from './user-available';
 
 /** Whether the user is available; `false` for an unknown user. */
 export async function isAvailable(tx: Tx, userId: string): Promise<boolean> {
@@ -39,7 +30,7 @@ export async function connect(
     .insert(webConnections)
     .values({ id: connectionId, userId, serverId })
     .returning({ id: webConnections.id });
-  // Assigning a question from the queue to the newly available user is added with the queue
+  await assignFromQueue(ctx, userId);
   return ok({ connectionId: row!.id });
 }
 
@@ -72,5 +63,7 @@ export async function setReceiving(
     .set({ receivingEnabled: enabled })
     .where(eq(users.id, userId))
     .returning({ id: users.id });
-  return updated.length === 0 ? fail('user_not_found') : ok();
+  if (updated.length === 0) return fail('user_not_found');
+  if (enabled) await assignFromQueue(ctx, userId);
+  return ok();
 }
