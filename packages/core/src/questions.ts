@@ -1,5 +1,5 @@
-import { assignments, questions, users } from '@human-msg/db';
-import { eq, sql } from 'drizzle-orm';
+import { assignments, questions, users, type Tx } from '@human-msg/db';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { CommandContext } from './context';
 import { findReceiver } from './matching';
 import { emit } from './outbox';
@@ -10,6 +10,16 @@ export type QuestionStatusAfterAsk = 'assigned' | 'queued';
 export interface AskedQuestion {
   questionId: string;
   status: QuestionStatusAfterAsk;
+}
+
+/** Rule 2: whether the user has a question of their own that is waiting for an answer. */
+export async function hasPendingQuestion(tx: Tx, userId: string): Promise<boolean> {
+  const rows = await tx
+    .select({ id: questions.id })
+    .from(questions)
+    .where(and(eq(questions.authorId, userId), inArray(questions.status, ['queued', 'assigned'])))
+    .limit(1);
+  return rows.length > 0;
 }
 
 /**
@@ -51,16 +61,23 @@ export async function assignQuestion(
  * Creates a question and gives it to a random suitable receiver; if there is none, the question
  * waits in the queue (rule 5). `expires_at` is fixed here. The text must already be validated
  * (see `handleIncomingText`).
+ *
+ * Rule 2: refused with `awaiting_answer` while the author has a question that is still `queued`
+ * or `assigned`. The partial unique index decides races between parallel sends.
  */
 export async function askQuestion(
   ctx: CommandContext,
   authorId: string,
   text: string,
-): Promise<Result<AskedQuestion, 'user_not_found'>> {
+): Promise<Result<AskedQuestion, 'user_not_found' | 'awaiting_answer'>> {
   const { tx, time, settings } = ctx;
   const [author] = await tx.select({ id: users.id }).from(users).where(eq(users.id, authorId));
   if (!author) return fail('user_not_found');
 
+  if (await hasPendingQuestion(tx, authorId)) return fail('awaiting_answer');
+
+  // A parallel send by the same author passes the check above; the unique index then skips the
+  // insert instead of failing the transaction
   const [question] = await tx
     .insert(questions)
     .values({
@@ -69,13 +86,15 @@ export async function askQuestion(
       createdAt: time.now(),
       expiresAt: sql`${time.now()} + ${settings.QUESTION_TTL} * interval '1 second'`,
     })
+    .onConflictDoNothing()
     .returning();
+  if (!question) return fail('awaiting_answer');
 
-  const receiverId = await findReceiver(ctx, question!);
+  const receiverId = await findReceiver(ctx, question);
   if (receiverId === undefined) {
-    await emit(tx, authorId, { type: 'question.queued', questionId: question!.id });
-    return ok({ questionId: question!.id, status: 'queued' });
+    await emit(tx, authorId, { type: 'question.queued', questionId: question.id });
+    return ok({ questionId: question.id, status: 'queued' });
   }
-  await assignQuestion(ctx, question!, receiverId);
-  return ok({ questionId: question!.id, status: 'assigned' });
+  await assignQuestion(ctx, question, receiverId);
+  return ok({ questionId: question.id, status: 'assigned' });
 }

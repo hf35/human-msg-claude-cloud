@@ -107,3 +107,60 @@ describe('askQuestion', () => {
     expect(await testDb.db.select().from(questions)).toHaveLength(0);
   });
 });
+
+describe('rule 2: one pending question per author', () => {
+  const ask = (authorId: string) =>
+    core().run((ctx) => askQuestion(ctx, authorId, 'Another question'));
+
+  it('refuses a second question while the first is queued', async () => {
+    const author = await createUser();
+    expect(await ask(author.id)).toMatchObject({ ok: true, value: { status: 'queued' } });
+    expect(await ask(author.id)).toEqual({ ok: false, reason: 'awaiting_answer' });
+    expect(await testDb.db.select().from(questions)).toHaveLength(1);
+  });
+
+  it('refuses a second question while the first is assigned', async () => {
+    const author = await createUser();
+    await createUser();
+    expect(await ask(author.id)).toMatchObject({ ok: true, value: { status: 'assigned' } });
+    expect(await ask(author.id)).toEqual({ ok: false, reason: 'awaiting_answer' });
+    expect(await testDb.db.select().from(questions)).toHaveLength(1);
+  });
+
+  it('allows a new question after the previous one was answered', async () => {
+    const author = await createUser();
+    await ask(author.id);
+    await testDb.db
+      .update(questions)
+      .set({ status: 'answered', answeredAt: new Date() })
+      .where(eq(questions.authorId, author.id));
+    expect(await ask(author.id)).toMatchObject({ ok: true });
+  });
+
+  it('allows a new question after the previous one expired', async () => {
+    const author = await createUser();
+    await ask(author.id);
+    await testDb.db
+      .update(questions)
+      .set({ status: 'expired' })
+      .where(eq(questions.authorId, author.id));
+    expect(await ask(author.id)).toMatchObject({ ok: true });
+  });
+
+  it('does not let parallel sends of one author create two questions', async () => {
+    const author = await createUser();
+    const results = await Promise.all(Array.from({ length: 5 }, () => ask(author.id)));
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.filter((r) => !r.ok)).toEqual(
+      Array(4).fill({ ok: false, reason: 'awaiting_answer' }),
+    );
+    expect(await testDb.db.select().from(questions)).toHaveLength(1);
+  });
+
+  it("does not count other users' pending questions", async () => {
+    const first = await createUser();
+    const second = await createUser();
+    await ask(first.id);
+    expect(await ask(second.id)).toMatchObject({ ok: true });
+  });
+});
