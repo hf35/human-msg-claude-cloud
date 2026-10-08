@@ -1,5 +1,5 @@
-import { assignments, questions, users, type Tx } from '@human-msg/db';
-import { and, count, eq, gt, inArray, sql } from 'drizzle-orm';
+import { answers, assignments, questions, users, type Tx } from '@human-msg/db';
+import { and, count, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import type { CommandContext } from './context';
 import { findReceiver } from './matching';
 import { emit } from './outbox';
@@ -116,4 +116,68 @@ export async function askQuestion(
   }
   await assignQuestion(ctx, question, receiverId);
   return ok({ questionId: question.id, status: 'assigned' });
+}
+
+/**
+ * Saves the answer of a receiver to the question assigned to them (rules 1, 4, 9).
+ *
+ * The active assignment is locked first, so an answer racing with a timeout, a skip or a report
+ * of the same assignment is either counted or refused, never both. In one transaction:
+ * - the answer is stored as its own row linked to the question (rule 4);
+ * - the question becomes `answered`, the assignment ends with outcome `answered`;
+ * - the receiver's cooldown starts (`COOLDOWN_WEB` / `COOLDOWN_TELEGRAM`, by channel);
+ * - the author gets the answer together with the text of the question.
+ *
+ * Nothing here looks at the answerer's own questions: an answer is always allowed (rule 1).
+ * The text must already be validated (see `handleIncomingText`).
+ */
+export async function submitAnswer(
+  ctx: CommandContext,
+  userId: string,
+  text: string,
+): Promise<Result<{ questionId: string }, 'no_active_assignment'>> {
+  const { tx, time, settings } = ctx;
+  const [assignment] = await tx
+    .select({ id: assignments.id, questionId: assignments.questionId })
+    .from(assignments)
+    .where(and(eq(assignments.receiverId, userId), isNull(assignments.outcome)))
+    .for('update');
+  if (!assignment) return fail('no_active_assignment');
+
+  const [responder] = await tx
+    .select({ alias: users.alias, channel: users.channel })
+    .from(users)
+    .where(eq(users.id, userId));
+  const [question] = await tx
+    .update(questions)
+    .set({ status: 'answered', answeredAt: time.now() })
+    .where(eq(questions.id, assignment.questionId))
+    .returning({ authorId: questions.authorId, text: questions.text });
+
+  await tx.insert(answers).values({
+    questionId: assignment.questionId,
+    authorId: userId,
+    text,
+    createdAt: time.now(),
+  });
+  await tx
+    .update(assignments)
+    .set({ outcome: 'answered', endedAt: time.now() })
+    .where(eq(assignments.id, assignment.id));
+
+  const cooldown =
+    responder!.channel === 'web' ? settings.COOLDOWN_WEB : settings.COOLDOWN_TELEGRAM;
+  await tx
+    .update(users)
+    .set({ cooldownUntil: sql`${time.now()} + ${cooldown} * interval '1 second'` })
+    .where(eq(users.id, userId));
+
+  await emit(tx, question!.authorId, {
+    type: 'answer.received',
+    questionId: assignment.questionId,
+    questionText: question!.text,
+    answerText: text,
+    responderAlias: responder!.alias,
+  });
+  return ok({ questionId: assignment.questionId });
 }
