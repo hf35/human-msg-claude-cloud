@@ -1,11 +1,21 @@
-import { assignments, outbox, questions, users, type NewUser } from '@human-msg/db';
+import {
+  answers,
+  assignments,
+  outbox,
+  questions,
+  users,
+  webConnections,
+  type NewUser,
+} from '@human-msg/db';
 import { createManualTime } from '@human-msg/db';
 import { createTestDatabase, type TestDatabase } from '@human-msg/db/testing';
 import { DEFAULT_SETTINGS } from '@human-msg/shared';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createCore, staticSettings } from './core';
-import { askQuestion } from './questions';
+import { ok } from './result';
+import { findReceiver } from './matching';
+import { askQuestion, submitAnswer } from './questions';
 
 let testDb: TestDatabase;
 const time = createManualTime();
@@ -228,5 +238,118 @@ describe('rule 10: daily question limit', () => {
     await finishPending(author.id);
     expect(await askWith(author.id, 1)).toEqual({ ok: false, reason: 'daily_limit' });
     expect(await askWith(author.id, 2)).toMatchObject({ ok: true });
+  });
+});
+
+describe('submitAnswer', () => {
+  const answer = (userId: string, text = 'My answer') =>
+    core().run((ctx) => submitAnswer(ctx, userId, text));
+  /** An author whose question is assigned to the only possible receiver. */
+  async function assigned(receiverValues: Partial<NewUser> = {}) {
+    const author = await createUser();
+    const receiver = await createUser(receiverValues);
+    const asked = await core().run((ctx) => askQuestion(ctx, author.id, 'Why?'));
+    if (!asked.ok || asked.value.status !== 'assigned') throw new Error('not assigned');
+    return { author, receiver, questionId: asked.value.questionId };
+  }
+  const nextReceiver = (authorId: string) =>
+    core().run(async (ctx) => ok(await findReceiver(ctx, { id: crypto.randomUUID(), authorId })));
+  const cooldownMs = async (userId: string) => {
+    const [user] = await testDb.db.select().from(users).where(eq(users.id, userId));
+    const [assignment] = await testDb.db
+      .select()
+      .from(assignments)
+      .where(eq(assignments.receiverId, userId));
+    return user!.cooldownUntil!.getTime() - assignment!.endedAt!.getTime();
+  };
+
+  it('stores the answer as its own row and finishes the question and the assignment', async () => {
+    const { receiver, questionId } = await assigned();
+    expect(await answer(receiver.id)).toEqual({ ok: true, value: { questionId } });
+
+    const [stored] = await testDb.db.select().from(answers);
+    expect(stored).toMatchObject({ questionId, authorId: receiver.id, text: 'My answer' });
+    const [question] = await testDb.db.select().from(questions);
+    expect(question!.status).toBe('answered');
+    expect(question!.answeredAt).not.toBeNull();
+    const [assignment] = await testDb.db.select().from(assignments);
+    expect(assignment!.outcome).toBe('answered');
+    expect(assignment!.endedAt).not.toBeNull();
+  });
+
+  it('sends the author the answer together with the question', async () => {
+    const { author, receiver, questionId } = await assigned();
+    await answer(receiver.id, 'Because');
+    const sent = (await events(author.id)).filter((event) => event.type === 'answer.received');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.payload).toEqual({
+      questionId,
+      questionText: 'Why?',
+      answerText: 'Because',
+      responderAlias: receiver.alias,
+    });
+  });
+
+  it('starts a 1-hour cooldown for a Telegram receiver', async () => {
+    const { receiver } = await assigned({ channel: 'telegram' });
+    await answer(receiver.id);
+    expect(await cooldownMs(receiver.id)).toBe(DEFAULT_SETTINGS.COOLDOWN_TELEGRAM * 1000);
+    expect(DEFAULT_SETTINGS.COOLDOWN_TELEGRAM).toBe(3600);
+  });
+
+  it('starts a 5-minute cooldown for a web receiver', async () => {
+    const author = await createUser();
+    const receiver = await createUser({ channel: 'web', telegramId: null, googleSub: 'g-web' });
+    await testDb.db.insert(webConnections).values({ userId: receiver.id, serverId: 's1' });
+    await core().run((ctx) => askQuestion(ctx, author.id, 'Why?'));
+    await answer(receiver.id);
+    expect(await cooldownMs(receiver.id)).toBe(DEFAULT_SETTINGS.COOLDOWN_WEB * 1000);
+    expect(DEFAULT_SETTINGS.COOLDOWN_WEB).toBe(300);
+  });
+
+  it('keeps the receiver out of selection during the cooldown only', async () => {
+    const { author, receiver } = await assigned({ channel: 'telegram' });
+    await answer(receiver.id);
+    // The author is the only other user, so the receiver is the sole candidate for their question
+    expect(await nextReceiver(author.id)).toMatchObject({ value: undefined });
+    time.advance(3600 * 1000 + 1000);
+    expect(await nextReceiver(author.id)).toMatchObject({ value: receiver.id });
+  });
+
+  it('refuses when nothing is assigned to the user', async () => {
+    const user = await createUser();
+    expect(await answer(user.id)).toEqual({ ok: false, reason: 'no_active_assignment' });
+    expect(await testDb.db.select().from(answers)).toHaveLength(0);
+  });
+
+  it('refuses a second answer to the same question', async () => {
+    const { receiver } = await assigned();
+    await answer(receiver.id);
+    expect(await answer(receiver.id)).toEqual({ ok: false, reason: 'no_active_assignment' });
+    expect(await testDb.db.select().from(answers)).toHaveLength(1);
+  });
+
+  it('refuses when the assignment has ended', async () => {
+    const { receiver } = await assigned();
+    await testDb.db
+      .update(assignments)
+      .set({ outcome: 'timed_out', endedAt: new Date() })
+      .where(eq(assignments.receiverId, receiver.id));
+    expect(await answer(receiver.id)).toEqual({ ok: false, reason: 'no_active_assignment' });
+  });
+
+  it('accepts the answer of a user who is waiting for an answer to their own question', async () => {
+    const { receiver } = await assigned();
+    // The receiver asks their own question and waits for it (rule 1 must not block the answer)
+    const own = await core().run((ctx) => askQuestion(ctx, receiver.id, 'And me?'));
+    expect(own).toMatchObject({ ok: true });
+    expect(await answer(receiver.id)).toMatchObject({ ok: true });
+  });
+
+  it('counts two parallel answers once', async () => {
+    const { receiver } = await assigned();
+    const results = await Promise.all([answer(receiver.id, 'a'), answer(receiver.id, 'b')]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(await testDb.db.select().from(answers)).toHaveLength(1);
   });
 });
