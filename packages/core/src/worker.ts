@@ -1,5 +1,5 @@
 import { assignments } from '@human-msg/db';
-import { and, asc, eq, isNull, lte } from 'drizzle-orm';
+import { and, asc, eq, gt, isNull, lte, sql } from 'drizzle-orm';
 import type { Core } from './core';
 import { lockUser } from './matching';
 import { emit } from './outbox';
@@ -81,6 +81,100 @@ export async function processDeadlines(core: Core): Promise<number> {
   let done = 0;
   for (const id of due.value) {
     const result = await core.run(async (ctx) => ok(await timeOutAssignment(ctx, id)));
+    if (result.ok && result.value) done++;
+  }
+  return done;
+}
+
+/**
+ * Ids of active assignments that need a reminder now: `ANSWER_REMINDER` or less is left until
+ * the deadline, the deadline has not passed (the deadline step takes those) and no reminder was
+ * sent yet.
+ */
+export async function findReminderAssignmentIds(
+  ctx: CommandContext,
+  limit = WORKER_BATCH_SIZE,
+): Promise<string[]> {
+  const { tx, time, settings } = ctx;
+  const rows = await tx
+    .select({ id: assignments.id })
+    .from(assignments)
+    .where(
+      and(
+        isNull(assignments.outcome),
+        isNull(assignments.remindedAt),
+        gt(assignments.deadlineAt, time.now()),
+        lte(
+          sql`${assignments.deadlineAt} - ${settings.ANSWER_REMINDER} * interval '1 second'`,
+          time.now(),
+        ),
+      ),
+    )
+    .orderBy(asc(assignments.deadlineAt))
+    .limit(limit);
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Sends the one reminder of an assignment ("N minutes left, answer or skip") and records
+ * `reminded_at`, so it is never sent twice. Locks like `timeOutAssignment`; returns `false` when
+ * there was nothing to do (already reminded or ended, not yet time, or another worker holds it).
+ */
+export async function remindAssignment(
+  ctx: CommandContext,
+  assignmentId: string,
+): Promise<boolean> {
+  const { tx, time, settings } = ctx;
+  const [probe] = await tx
+    .select({ receiverId: assignments.receiverId })
+    .from(assignments)
+    .where(eq(assignments.id, assignmentId));
+  if (!probe || !(await lockUser(tx, probe.receiverId))) return false;
+
+  const [assignment] = await tx
+    .select({
+      id: assignments.id,
+      questionId: assignments.questionId,
+      receiverId: assignments.receiverId,
+      deadlineAt: assignments.deadlineAt,
+      secondsLeft: sql<number>`round(extract(epoch FROM ${assignments.deadlineAt} - (${time.now()})))::int`,
+    })
+    .from(assignments)
+    .where(
+      and(
+        eq(assignments.id, assignmentId),
+        isNull(assignments.outcome),
+        isNull(assignments.remindedAt),
+        gt(assignments.deadlineAt, time.now()),
+        lte(
+          sql`${assignments.deadlineAt} - ${settings.ANSWER_REMINDER} * interval '1 second'`,
+          time.now(),
+        ),
+      ),
+    )
+    .for('no key update', { skipLocked: true });
+  if (!assignment) return false;
+
+  await tx
+    .update(assignments)
+    .set({ remindedAt: time.now() })
+    .where(eq(assignments.id, assignment.id));
+  await emit(tx, assignment.receiverId, {
+    type: 'assignment.reminder',
+    questionId: assignment.questionId,
+    deadlineAt: assignment.deadlineAt.toISOString(),
+    secondsLeft: Math.max(0, assignment.secondsLeft),
+  });
+  return true;
+}
+
+/** Worker step 2: sends the due reminders, one transaction each. Returns how many were sent. */
+export async function processReminders(core: Core): Promise<number> {
+  const due = await core.run(async (ctx) => ok(await findReminderAssignmentIds(ctx)));
+  if (!due.ok) return 0;
+  let done = 0;
+  for (const id of due.value) {
+    const result = await core.run(async (ctx) => ok(await remindAssignment(ctx, id)));
     if (result.ok && result.value) done++;
   }
   return done;

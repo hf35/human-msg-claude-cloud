@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createCore } from './core';
 import { askQuestion, skipAssignment, submitAnswer } from './questions';
-import { processDeadlines } from './worker';
+import { processDeadlines, processReminders } from './worker';
 
 let testDb: TestDatabase;
 const time = createManualTime();
@@ -153,5 +153,66 @@ describe('processDeadlines', () => {
         expect(question!.status).toBe('queued');
       }
     }
+  });
+});
+
+describe('processReminders', () => {
+  const remindersOf = async (userId: string) =>
+    (await eventsOf(userId)).filter((e) => e.type === 'assignment.reminder');
+
+  it('sends one reminder at minute 25 and none on a repeated pass', async () => {
+    const author = await createUser();
+    const receiver = await createUser();
+    const questionId = await ask(author.id);
+
+    time.advance(24 * MINUTE);
+    expect(await processReminders(core())).toBe(0);
+
+    time.advance(1 * MINUTE);
+    expect(await processReminders(core())).toBe(1);
+    expect(await processReminders(core())).toBe(0);
+    time.advance(2 * MINUTE);
+    expect(await processReminders(core())).toBe(0);
+
+    const events = await remindersOf(receiver.id);
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toMatchObject({ questionId, secondsLeft: 300 });
+    const [assignment] = await historyOf(questionId);
+    expect(assignment!.remindedAt).not.toBeNull();
+  });
+
+  it('does not remind about an ended assignment or one past its deadline', async () => {
+    const author = await createUser();
+    const receiver = await createUser();
+    await ask(author.id);
+    await core().run((ctx) => submitAnswer(ctx, receiver.id, 'Answer'));
+    time.advance(26 * MINUTE);
+    expect(await processReminders(core())).toBe(0);
+
+    await testDb.reset();
+    time.reset();
+    const author2 = await createUser();
+    const receiver2 = await createUser();
+    await ask(author2.id);
+    time.advance(31 * MINUTE);
+    expect(await processReminders(core())).toBe(0);
+    expect(await remindersOf(receiver2.id)).toHaveLength(0);
+  });
+
+  it('reminds again for a new assignment of the same question', async () => {
+    const author = await createUser();
+    const first = await createUser();
+    const questionId = await ask(author.id);
+    time.advance(26 * MINUTE);
+    await processReminders(core());
+    const second = await createUser();
+    time.advance(5 * MINUTE);
+    await processDeadlines(core());
+    expect((await historyOf(questionId)).find((a) => a.receiverId === second.id)).toBeDefined();
+
+    time.advance(26 * MINUTE);
+    expect(await processReminders(core())).toBe(1);
+    expect(await remindersOf(first.id)).toHaveLength(1);
+    expect(await remindersOf(second.id)).toHaveLength(1);
   });
 });
