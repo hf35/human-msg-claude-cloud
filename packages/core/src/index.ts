@@ -6,3 +6,4 @@ export * from './users';
 export * from './availability';
 export * from './outbox';
 export * from './matching';
+export * from './questions';
