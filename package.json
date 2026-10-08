@@ -22,6 +22,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:check": "pnpm --filter @human-msg/db db:check",
+    "db:generate": "pnpm --filter @human-msg/db db:generate",
+    "db:migrate": "pnpm --filter @human-msg/db db:migrate"
   }
 }

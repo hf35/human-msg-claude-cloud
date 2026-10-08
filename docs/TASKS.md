@@ -72,7 +72,7 @@
 
 ## Этап 2. База данных
 
-- [ ] **2.1 Подключение Drizzle.** Клиент `pg` + Drizzle в `packages/db`,
+- [x] **2.1 Подключение Drizzle.** Клиент `pg` + Drizzle в `packages/db`,
   конфиг drizzle-kit, чтение `DATABASE_URL`. **Проверка:** скрипт
   `pnpm db:check` выполняет `select 1`.
 - [ ] **2.2 Таблица `users`.** Все поля из `ARCHITECTURE.md` (в том числе
