@@ -3,7 +3,8 @@ import { and, asc, eq, gt, isNull, lte, sql } from 'drizzle-orm';
 import type { Core } from './core';
 import { lockUser } from './matching';
 import { emit } from './outbox';
-import { releaseAssignment } from './questions';
+import { findReceiver } from './matching';
+import { assignQuestion, releaseAssignment } from './questions';
 import { ok } from './result';
 import type { CommandContext } from './context';
 
@@ -227,6 +228,66 @@ export async function processExpiredQuestions(core: Core): Promise<number> {
   let done = 0;
   for (const id of due.value) {
     const result = await core.run(async (ctx) => ok(await expireQuestion(ctx, id)));
+    if (result.ok && result.value) done++;
+  }
+  return done;
+}
+
+/** Ids of queued questions that are still alive, oldest first (FIFO, rule 5). */
+export async function findQueuedQuestionIds(
+  ctx: CommandContext,
+  limit = WORKER_BATCH_SIZE,
+): Promise<string[]> {
+  const rows = await ctx.tx
+    .select({ id: questions.id })
+    .from(questions)
+    .where(and(eq(questions.status, 'queued'), gt(questions.expiresAt, ctx.time.now())))
+    .orderBy(asc(questions.createdAt), asc(questions.id))
+    .limit(limit);
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Tries to hand one queued question to a suitable receiver (rule 6), for example somebody whose
+ * cooldown has just ended. The question is locked with `SKIP LOCKED`, so a parallel command that
+ * is already working with it (another worker, a user who just came online) is not disturbed.
+ * Returns `true` when the question was assigned.
+ */
+export async function dispatchQueuedQuestion(
+  ctx: CommandContext,
+  questionId: string,
+): Promise<boolean> {
+  const { tx, time } = ctx;
+  const [question] = await tx
+    .select({ id: questions.id, text: questions.text, authorId: questions.authorId })
+    .from(questions)
+    .where(
+      and(
+        eq(questions.id, questionId),
+        eq(questions.status, 'queued'),
+        gt(questions.expiresAt, time.now()),
+      ),
+    )
+    .for('no key update', { skipLocked: true });
+  if (!question) return false;
+
+  const receiverId = await findReceiver(ctx, question);
+  if (receiverId === undefined) return false;
+  await assignQuestion(ctx, question, receiverId);
+  return true;
+}
+
+/**
+ * Worker step 4: goes through the queue from the oldest question and assigns what can be
+ * assigned now, in particular to users whose cooldown has ended. Returns how many questions
+ * were assigned.
+ */
+export async function processQueue(core: Core): Promise<number> {
+  const queued = await core.run(async (ctx) => ok(await findQueuedQuestionIds(ctx)));
+  if (!queued.ok) return 0;
+  let done = 0;
+  for (const id of queued.value) {
+    const result = await core.run(async (ctx) => ok(await dispatchQueuedQuestion(ctx, id)));
     if (result.ok && result.value) done++;
   }
   return done;
