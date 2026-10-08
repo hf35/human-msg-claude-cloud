@@ -38,6 +38,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@human-msg/db':
+        specifier: workspace:*
+        version: link:../db
       '@human-msg/shared':
         specifier: workspace:*
         version: link:../shared
