@@ -1,6 +1,7 @@
 import {
   answers,
   assignments,
+  blocks,
   questions,
   users,
   type AssignmentOutcome,
@@ -254,5 +255,73 @@ export async function skipAssignment(
     .for('update');
   if (!assignment) return fail('no_active_assignment');
   await releaseAssignment(ctx, assignment, 'skipped', ctx.settings.COOLDOWN_SKIP);
+  return ok({ questionId: assignment.questionId });
+}
+
+/**
+ * Records the one-way exclusion made by a complaint: questions of `authorId` are never assigned
+ * to `receiverId` again. Complaining twice about the same pair changes nothing.
+ */
+async function addBlock(
+  ctx: CommandContext,
+  block: { authorId: string; receiverId: string; reportedBy: string; questionId: string },
+): Promise<void> {
+  await ctx.tx.insert(blocks).values(block).onConflictDoNothing();
+}
+
+/**
+ * The author complains about the answer to their question: its responder will never answer
+ * this author again. Nobody else is affected, and the responder's own questions still reach
+ * the author.
+ */
+export async function reportAnswer(
+  ctx: CommandContext,
+  authorId: string,
+  questionId: string,
+): Promise<Result<void, 'not_found' | 'not_answered'>> {
+  const [row] = await ctx.tx
+    .select({ responderId: answers.authorId })
+    .from(questions)
+    .leftJoin(answers, eq(answers.questionId, questions.id))
+    .where(and(eq(questions.id, questionId), eq(questions.authorId, authorId)));
+  if (!row) return fail('not_found');
+  if (row.responderId === null) return fail('not_answered');
+  await addBlock(ctx, {
+    authorId,
+    receiverId: row.responderId,
+    reportedBy: authorId,
+    questionId,
+  });
+  return ok();
+}
+
+/**
+ * The receiver complains about the question assigned to them. The assignment ends as `reported`
+ * right away and without a cooldown, the question goes on to someone else (or back to the
+ * queue), and the receiver never gets questions of this author again.
+ */
+export async function reportQuestion(
+  ctx: CommandContext,
+  userId: string,
+): Promise<Result<{ questionId: string }, 'no_active_assignment'>> {
+  const [assignment] = await ctx.tx
+    .select({
+      id: assignments.id,
+      questionId: assignments.questionId,
+      receiverId: assignments.receiverId,
+      authorId: questions.authorId,
+    })
+    .from(assignments)
+    .innerJoin(questions, eq(questions.id, assignments.questionId))
+    .where(and(eq(assignments.receiverId, userId), isNull(assignments.outcome)))
+    .for('update', { of: assignments });
+  if (!assignment) return fail('no_active_assignment');
+  await addBlock(ctx, {
+    authorId: assignment.authorId,
+    receiverId: userId,
+    reportedBy: userId,
+    questionId: assignment.questionId,
+  });
+  await releaseAssignment(ctx, assignment, 'reported', null);
   return ok({ questionId: assignment.questionId });
 }
