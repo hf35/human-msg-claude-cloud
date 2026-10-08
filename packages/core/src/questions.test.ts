@@ -164,3 +164,69 @@ describe('rule 2: one pending question per author', () => {
     expect(await ask(second.id)).toMatchObject({ ok: true });
   });
 });
+
+describe('rule 10: daily question limit', () => {
+  const HOUR_MS = 3_600_000;
+  const askWith = (authorId: string, limit = DEFAULT_SETTINGS.QUESTIONS_PER_DAY) =>
+    core({ ...DEFAULT_SETTINGS, QUESTIONS_PER_DAY: limit }).run((ctx) =>
+      askQuestion(ctx, authorId, 'Question'),
+    );
+  /** Ends the pending question so that the next one is not stopped by rule 2. */
+  const finishPending = (authorId: string) =>
+    testDb.db
+      .update(questions)
+      .set({ status: 'answered', answeredAt: new Date() })
+      .where(eq(questions.authorId, authorId));
+
+  it('lets 10 questions through by default and refuses the 11th', async () => {
+    const author = await createUser();
+    for (let i = 0; i < 10; i++) {
+      expect(await askWith(author.id)).toMatchObject({ ok: true });
+      await finishPending(author.id);
+    }
+    expect(await askWith(author.id)).toEqual({ ok: false, reason: 'daily_limit' });
+    expect(await testDb.db.select().from(questions)).toHaveLength(10);
+  });
+
+  it('allows asking again once the oldest question leaves the 24-hour window', async () => {
+    const author = await createUser();
+    await askWith(author.id, 2);
+    await finishPending(author.id);
+    time.advance(12 * HOUR_MS);
+    await askWith(author.id, 2);
+    await finishPending(author.id);
+    expect(await askWith(author.id, 2)).toEqual({ ok: false, reason: 'daily_limit' });
+
+    // 24 hours after the first question: it drops out of the window, the second still counts
+    time.advance(12 * HOUR_MS + 1000);
+    expect(await askWith(author.id, 2)).toMatchObject({ ok: true });
+    await finishPending(author.id);
+    expect(await askWith(author.id, 2)).toEqual({ ok: false, reason: 'daily_limit' });
+  });
+
+  it('counts only own questions, and expired ones too', async () => {
+    const author = await createUser();
+    const other = await createUser();
+    await askWith(author.id, 1);
+    await testDb.db
+      .update(questions)
+      .set({ status: 'expired' })
+      .where(eq(questions.authorId, author.id));
+    expect(await askWith(author.id, 1)).toEqual({ ok: false, reason: 'daily_limit' });
+    expect(await askWith(other.id, 1)).toMatchObject({ ok: true });
+  });
+
+  it('reports a pending question before the limit', async () => {
+    const author = await createUser();
+    await askWith(author.id, 1);
+    expect(await askWith(author.id, 1)).toEqual({ ok: false, reason: 'awaiting_answer' });
+  });
+
+  it('uses the current QUESTIONS_PER_DAY setting', async () => {
+    const author = await createUser();
+    await askWith(author.id, 1);
+    await finishPending(author.id);
+    expect(await askWith(author.id, 1)).toEqual({ ok: false, reason: 'daily_limit' });
+    expect(await askWith(author.id, 2)).toMatchObject({ ok: true });
+  });
+});
