@@ -1,4 +1,11 @@
-import { answers, assignments, questions, users, type Tx } from '@human-msg/db';
+import {
+  answers,
+  assignments,
+  questions,
+  users,
+  type AssignmentOutcome,
+  type Tx,
+} from '@human-msg/db';
 import { and, count, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import type { CommandContext } from './context';
 import { findReceiver } from './matching';
@@ -179,5 +186,73 @@ export async function submitAnswer(
     answerText: text,
     responderAlias: responder!.alias,
   });
+  return ok({ questionId: assignment.questionId });
+}
+
+/**
+ * Puts a question back into the queue and immediately tries to hand it to another receiver
+ * (rules 5 and 6). An expired question is not handed out (`expires_at` is checked now); it
+ * stays queued until the worker marks it `expired`.
+ */
+export async function requeueQuestion(ctx: CommandContext, questionId: string): Promise<void> {
+  const { tx, time } = ctx;
+  const [question] = await tx
+    .update(questions)
+    .set({ status: 'queued' })
+    .where(eq(questions.id, questionId))
+    .returning();
+  const [alive] = await tx
+    .select({ alive: sql<boolean>`${question!.expiresAt} > ${time.now()}` })
+    .from(questions)
+    .where(eq(questions.id, questionId));
+  if (!alive!.alive) return;
+  const receiverId = await findReceiver(ctx, question!);
+  if (receiverId !== undefined) await assignQuestion(ctx, question!, receiverId);
+}
+
+/**
+ * Ends an active assignment without an answer: records the outcome, optionally starts the
+ * receiver's cooldown, and sends the question on (`requeueQuestion`).
+ */
+export async function releaseAssignment(
+  ctx: CommandContext,
+  assignment: { id: string; questionId: string; receiverId: string },
+  outcome: Exclude<AssignmentOutcome, 'answered'>,
+  cooldownSeconds: number | null,
+): Promise<void> {
+  const { tx, time } = ctx;
+  await tx
+    .update(assignments)
+    .set({ outcome, endedAt: time.now() })
+    .where(eq(assignments.id, assignment.id));
+  if (cooldownSeconds !== null) {
+    await tx
+      .update(users)
+      .set({ cooldownUntil: sql`${time.now()} + ${cooldownSeconds} * interval '1 second'` })
+      .where(eq(users.id, assignment.receiverId));
+  }
+  await requeueQuestion(ctx, assignment.questionId);
+}
+
+/**
+ * Rule 8: the receiver declines the question assigned to them. The assignment ends as
+ * `skipped` (kept in the history, so they never get this question again), the receiver rests
+ * for `COOLDOWN_SKIP`, and the question goes to someone else right away or back to the queue.
+ */
+export async function skipAssignment(
+  ctx: CommandContext,
+  userId: string,
+): Promise<Result<{ questionId: string }, 'no_active_assignment'>> {
+  const [assignment] = await ctx.tx
+    .select({
+      id: assignments.id,
+      questionId: assignments.questionId,
+      receiverId: assignments.receiverId,
+    })
+    .from(assignments)
+    .where(and(eq(assignments.receiverId, userId), isNull(assignments.outcome)))
+    .for('update');
+  if (!assignment) return fail('no_active_assignment');
+  await releaseAssignment(ctx, assignment, 'skipped', ctx.settings.COOLDOWN_SKIP);
   return ok({ questionId: assignment.questionId });
 }
