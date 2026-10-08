@@ -5,3 +5,4 @@ export * from './settings';
 export * from './users';
 export * from './availability';
 export * from './outbox';
+export * from './matching';
