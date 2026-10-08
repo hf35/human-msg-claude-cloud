@@ -1,6 +1,7 @@
 export const APP_NAME = 'human-msg';
 
 export * from './alias';
+export * from './events';
 export * from './message';
 export * from './quiet-hours';
 export * from './settings';

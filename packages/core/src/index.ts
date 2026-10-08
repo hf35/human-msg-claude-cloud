@@ -3,3 +3,5 @@ export * from './core';
 export * from './result';
 export * from './settings';
 export * from './users';
+export * from './availability';
+export * from './outbox';
