@@ -29,7 +29,7 @@ export async function staffAnswer(
     .select()
     .from(questions)
     .where(eq(questions.id, questionId))
-    .for('update');
+    .for('no key update');
   if (!question) return fail('not_found');
   if (question.status !== 'expired') return fail('not_expired');
 

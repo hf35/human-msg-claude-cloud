@@ -9,7 +9,7 @@ import {
 } from '@human-msg/db';
 import { and, count, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import type { CommandContext } from './context';
-import { findReceiver } from './matching';
+import { findReceiver, lockUser } from './matching';
 import { emit } from './outbox';
 import { fail, ok, type Result } from './result';
 
@@ -145,11 +145,12 @@ export async function submitAnswer(
   text: string,
 ): Promise<Result<{ questionId: string }, 'no_active_assignment'>> {
   const { tx, time, settings } = ctx;
+  if (!(await lockUser(tx, userId))) return fail('no_active_assignment');
   const [assignment] = await tx
     .select({ id: assignments.id, questionId: assignments.questionId })
     .from(assignments)
     .where(and(eq(assignments.receiverId, userId), isNull(assignments.outcome)))
-    .for('update');
+    .for('no key update');
   if (!assignment) return fail('no_active_assignment');
 
   const [responder] = await tx
@@ -244,6 +245,7 @@ export async function skipAssignment(
   ctx: CommandContext,
   userId: string,
 ): Promise<Result<{ questionId: string }, 'no_active_assignment'>> {
+  if (!(await lockUser(ctx.tx, userId))) return fail('no_active_assignment');
   const [assignment] = await ctx.tx
     .select({
       id: assignments.id,
@@ -252,7 +254,7 @@ export async function skipAssignment(
     })
     .from(assignments)
     .where(and(eq(assignments.receiverId, userId), isNull(assignments.outcome)))
-    .for('update');
+    .for('no key update');
   if (!assignment) return fail('no_active_assignment');
   await releaseAssignment(ctx, assignment, 'skipped', ctx.settings.COOLDOWN_SKIP);
   return ok({ questionId: assignment.questionId });
@@ -304,6 +306,7 @@ export async function reportQuestion(
   ctx: CommandContext,
   userId: string,
 ): Promise<Result<{ questionId: string }, 'no_active_assignment'>> {
+  if (!(await lockUser(ctx.tx, userId))) return fail('no_active_assignment');
   const [assignment] = await ctx.tx
     .select({
       id: assignments.id,
@@ -314,7 +317,7 @@ export async function reportQuestion(
     .from(assignments)
     .innerJoin(questions, eq(questions.id, assignments.questionId))
     .where(and(eq(assignments.receiverId, userId), isNull(assignments.outcome)))
-    .for('update', { of: assignments });
+    .for('no key update', { of: assignments });
   if (!assignment) return fail('no_active_assignment');
   await addBlock(ctx, {
     authorId: assignment.authorId,

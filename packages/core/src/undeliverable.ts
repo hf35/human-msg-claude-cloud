@@ -16,7 +16,7 @@ export async function markUndeliverable(
   userId: string,
 ): Promise<Result<void, 'user_not_found' | 'not_a_telegram_user'>> {
   const { tx, time } = ctx;
-  const [user] = await tx.select().from(users).where(eq(users.id, userId)).for('update');
+  const [user] = await tx.select().from(users).where(eq(users.id, userId)).for('no key update');
   if (!user) return fail('user_not_found');
   if (user.channel !== 'telegram') return fail('not_a_telegram_user');
 
@@ -31,7 +31,7 @@ export async function markUndeliverable(
     })
     .from(assignments)
     .where(and(eq(assignments.receiverId, userId), isNull(assignments.outcome)))
-    .for('update');
+    .for('no key update');
   if (assignment) await releaseAssignment(ctx, assignment, 'undeliverable', null);
   return ok();
 }
@@ -44,7 +44,7 @@ export async function markReachable(
   ctx: CommandContext,
   userId: string,
 ): Promise<Result<void, 'user_not_found' | 'not_a_telegram_user'>> {
-  const [user] = await ctx.tx.select().from(users).where(eq(users.id, userId)).for('update');
+  const [user] = await ctx.tx.select().from(users).where(eq(users.id, userId)).for('no key update');
   if (!user) return fail('user_not_found');
   if (user.channel !== 'telegram') return fail('not_a_telegram_user');
   if (user.botBlockedAt === null) return ok();
