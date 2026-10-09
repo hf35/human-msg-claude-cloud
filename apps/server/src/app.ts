@@ -4,6 +4,7 @@ import type { Config } from './config';
 import { registerAuthRoutes } from './web/auth';
 import type { GoogleTokenVerifier } from './web/google';
 import { registerSessions } from './web/session';
+import { registerStateRoutes } from './web/state';
 
 export interface AppOptions {
   config: Pick<Config, 'logLevel'> & Partial<Pick<Config, 'nodeEnv' | 'devLogin'>>;
@@ -47,6 +48,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       // Double lock: the flag is honoured only in development, whatever the caller passed
       devLogin: config.devLogin === true && config.nodeEnv === 'development',
     });
+    registerStateRoutes(app, { core });
   }
 
   return app;

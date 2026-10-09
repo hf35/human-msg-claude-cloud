@@ -15,3 +15,4 @@ export * from './staff';
 export * from './worker';
 export * from './worker-loop';
 export * from './sessions';
+export * from './state';
