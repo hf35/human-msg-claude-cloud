@@ -11,6 +11,7 @@ import { createDb, createPool, type TimeSource } from '@human-msg/db';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app';
 import type { Config } from './config';
+import { startTelegram, type RunningTelegram } from './telegram';
 import { createGoogleVerifier, type GoogleTokenVerifier } from './web/google';
 import {
   createWebSocketAdapter,
@@ -76,11 +77,13 @@ export async function startServer(
   let worker: ReturnType<typeof startWorker> | undefined;
   let dispatcher: ReturnType<typeof startDispatcher> | undefined;
   let listener: ReturnType<typeof startOutboxListener> | undefined;
+  let telegram: RunningTelegram | undefined;
 
   // Stops what is running, in the reverse order of starting; safe to call at any stage
   let stopping: Promise<void> | undefined;
   const stop = () =>
     (stopping ??= (async () => {
+      await telegram?.stop();
       await app.close();
       await listener?.stop();
       await dispatcher?.stop();
@@ -110,6 +113,19 @@ export async function startServer(
       onError: (error) => app.log.warn({ err: error }, 'outbox listener lost its connection'),
       reconnectDelayMs: listenerReconnectMs,
     });
+
+    // Before listening: a wrong token must stop the start, not leave a server without its bot
+    if (config.telegram) {
+      telegram = await startTelegram({
+        token: config.telegram.token,
+        core,
+        ...(config.telegram.apiRoot && { apiRoot: config.telegram.apiRoot }),
+        log: {
+          info: (message) => app.log.info(message),
+          error: (object, message) => app.log.error(object, message),
+        },
+      });
+    }
 
     const address = await app.listen({ host: config.host, port: config.port });
     return { app, core, settings, address, stop };
