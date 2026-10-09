@@ -130,14 +130,12 @@ describe('GET /admin/api/users/:id/history', () => {
         createdAt: new Date('2026-01-01T10:00:00Z'),
       })
       .returning();
-    await testDb.db
-      .insert(answers)
-      .values({
-        questionId: q1!.id,
-        authorId: bob.id,
-        text: 'Bob replies',
-        createdAt: new Date('2026-01-01T11:00:00Z'),
-      });
+    await testDb.db.insert(answers).values({
+      questionId: q1!.id,
+      authorId: bob.id,
+      text: 'Bob replies',
+      createdAt: new Date('2026-01-01T11:00:00Z'),
+    });
     await testDb.db.insert(questions).values({
       authorId: bob.id,
       text: 'Bob asks',

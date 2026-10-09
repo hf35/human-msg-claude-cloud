@@ -44,11 +44,11 @@ export async function listUsers(
   const limit = Math.min(Math.max(options.limit ?? 20, 1), ADMIN_USERS_MAX_LIMIT);
   const offset = Math.max(options.offset ?? 0, 0);
   const conditions: Array<SQL | undefined> = [
-    filter.channel && eq(users.channel, filter.channel),
+    filter.channel ? eq(users.channel, filter.channel) : undefined,
     filter.isTest !== undefined ? eq(users.isTest, filter.isTest) : undefined,
     filter.isStaff !== undefined ? eq(users.isStaff, filter.isStaff) : undefined,
-    filter.createdFrom && gte(users.createdAt, filter.createdFrom),
-    filter.createdTo && lt(users.createdAt, filter.createdTo),
+    filter.createdFrom ? gte(users.createdAt, filter.createdFrom) : undefined,
+    filter.createdTo ? lt(users.createdAt, filter.createdTo) : undefined,
     filter.search ? ilike(users.alias, `%${escapeLike(filter.search)}%`) : undefined,
   ];
   const where = and(...conditions);
