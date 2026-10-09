@@ -28,6 +28,11 @@ export interface DispatcherOptions {
 }
 
 export interface Dispatcher {
+  /**
+   * Starts a pass now instead of waiting for the timer. Wakes arriving during a pass are merged
+   * into one more pass right after it, so a burst of notifications costs two passes at most.
+   */
+  wake(): void;
   /** Stops scheduling passes and waits for the current one to finish. */
   stop(): Promise<void>;
 }
@@ -46,14 +51,16 @@ export function dispatchOnce(
 }
 
 /**
- * Delivers outbox events every `intervalMs`. The next pass is scheduled only after the previous
- * one has finished, so passes of one dispatcher never overlap. A failed pass is reported to
- * `onError` and does not stop the dispatcher. Several dispatchers (or server instances) may run
- * at once: an event is taken by one of them.
+ * Delivers outbox events every `intervalMs`, and at once on `wake()`. Passes of one dispatcher
+ * never overlap: the next one starts only after the previous has finished. A failed pass is
+ * reported to `onError` and does not stop the dispatcher. Several dispatchers (or server
+ * instances) may run at once: an event is taken by one of them.
  */
 export function startDispatcher(options: DispatcherOptions): Dispatcher {
   const { intervalMs, onError } = options;
   let stopped = false;
+  let running = false;
+  let wakeRequested = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let current: Promise<void> = Promise.resolve();
 
@@ -64,15 +71,35 @@ export function startDispatcher(options: DispatcherOptions): Dispatcher {
       onError?.(error);
     }
   };
+  const startPass = () => {
+    running = true;
+    current = pass().finally(() => {
+      running = false;
+      if (stopped) return;
+      if (wakeRequested) {
+        wakeRequested = false;
+        startPass();
+      } else {
+        schedule();
+      }
+    });
+  };
   const schedule = () => {
     if (stopped) return;
-    timer = setTimeout(() => {
-      current = pass().finally(schedule);
-    }, intervalMs);
+    timer = setTimeout(startPass, intervalMs);
   };
   schedule();
 
   return {
+    wake() {
+      if (stopped) return;
+      if (running) {
+        wakeRequested = true;
+        return;
+      }
+      clearTimeout(timer);
+      startPass();
+    },
     async stop() {
       stopped = true;
       clearTimeout(timer);

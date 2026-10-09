@@ -3,11 +3,13 @@ import { createManualTime, users, type NewUser } from '@human-msg/db';
 import { createTestDatabase, type TestDatabase } from '@human-msg/db/testing';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { dispatchOnce, startDispatcher, type Dispatcher } from './dispatcher';
+import { startOutboxListener, type OutboxListener } from './listener';
 
 let testDb: TestDatabase;
 const time = createManualTime();
 let core: Core;
 let running: Dispatcher | undefined;
+let listening: OutboxListener | undefined;
 
 beforeAll(async () => {
   testDb = await createTestDatabase();
@@ -19,6 +21,8 @@ beforeEach(async () => {
   core = createCore({ db: testDb.db, time });
 });
 afterEach(async () => {
+  await listening?.stop();
+  listening = undefined;
   await running?.stop();
   running = undefined;
 });
@@ -215,5 +219,93 @@ describe('startDispatcher', () => {
     const later = await emitQueued(user.id, 'q-2');
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(await deliveredAt(later)).toBeNull();
+  });
+});
+
+describe('wake', () => {
+  it('delivers at once instead of waiting for the timer', async () => {
+    const user = await createUser();
+    const id = await emitQueued(user.id);
+    running = startDispatcher({ core, adapters: { web: fakeAdapter() }, intervalMs: 60_000 });
+
+    running.wake();
+
+    await eventually(async () => (await deliveredAt(id)) !== null);
+  });
+
+  it('merges wakes during a pass into one more pass that sees newer events', async () => {
+    const user = await createUser();
+    const first = await emitQueued(user.id, 'q-1');
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let passes = 0;
+    const calls: number[] = [];
+    const deliver = async (delivery: OutboxDelivery) => {
+      calls.push(delivery.id);
+      if (delivery.id === first) {
+        passes++;
+        await gate;
+      }
+    };
+    running = startDispatcher({ core, adapters: { web: { deliver } }, intervalMs: 60_000 });
+    running.wake();
+    await eventually(() => calls.length === 1);
+
+    // The pass is busy: a new event arrives and wakes pile up
+    const second = await emitQueued(user.id, 'q-2');
+    for (let i = 0; i < 5; i++) running.wake();
+    release();
+
+    await eventually(async () => (await deliveredAt(second)) !== null);
+    expect(passes).toBe(1);
+    expect(calls).toEqual([first, second]);
+  });
+
+  it('does nothing after stop()', async () => {
+    const user = await createUser();
+    const id = await emitQueued(user.id);
+    const dispatcher = startDispatcher({
+      core,
+      adapters: { web: fakeAdapter() },
+      intervalMs: 60_000,
+    });
+    await dispatcher.stop();
+    dispatcher.wake();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(await deliveredAt(id)).toBeNull();
+  });
+});
+
+describe('notifications wake the dispatcher', () => {
+  it('delivers an event long before the next periodic pass', async () => {
+    const user = await createUser();
+    const adapter = fakeAdapter();
+    // The timer would fire only in a minute: only the notification can explain a fast delivery
+    running = startDispatcher({ core, adapters: { web: adapter }, intervalMs: 60_000 });
+    listening = startOutboxListener({
+      connectionString: testDb.pool.options.connectionString!,
+      onNotify: () => running!.wake(),
+    });
+    await listening.ready;
+
+    const startedAt = Date.now();
+    const id = await emitQueued(user.id);
+
+    await eventually(async () => (await deliveredAt(id)) !== null);
+    expect(Date.now() - startedAt).toBeLessThan(5_000);
+    expect(adapter.calls).toHaveLength(1);
+  });
+
+  it('delivers what was written before the listener connected', async () => {
+    const user = await createUser();
+    const id = await emitQueued(user.id);
+    running = startDispatcher({ core, adapters: { web: fakeAdapter() }, intervalMs: 60_000 });
+
+    listening = startOutboxListener({
+      connectionString: testDb.pool.options.connectionString!,
+      onNotify: () => running!.wake(),
+    });
+
+    await eventually(async () => (await deliveredAt(id)) !== null);
   });
 });
