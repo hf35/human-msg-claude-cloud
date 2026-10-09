@@ -88,6 +88,12 @@ export const en: Texts = {
     notice: {
       dismiss: 'Close',
     },
+    answer: {
+      yourQuestion: 'Your question',
+      theAnswer: 'Answer',
+      reportConfirm: 'You will no longer get answers from this person. Report?',
+      reportDone: 'Report received. You will not get answers from this person anymore.',
+    },
     state: {
       waiting: 'Your question is waiting for an answer:',
     },

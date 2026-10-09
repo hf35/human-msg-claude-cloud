@@ -2,9 +2,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { MeResponse } from '@human-msg/shared';
 import { api } from './api';
+import { AnswerCard } from './AnswerCard';
 import { AskPanel } from './AskPanel';
 import { IncomingCard } from './IncomingCard';
 import { useI18n } from './i18n';
+import { useNewAnswers } from './useNewAnswers';
 import { useRealtime } from './useRealtime';
 
 /** The screen of a signed-in user. The question screens are added by the following tasks. */
@@ -18,6 +20,7 @@ export function Home({ me }: { me: MeResponse }) {
     if (event.type === 'question.expired') setNotice(t.notifications.questionExpired);
   });
   const state = useQuery({ queryKey: ['state'], queryFn: api.state });
+  const { answers, dismissAll } = useNewAnswers(me.alias);
 
   async function signOut() {
     try {
@@ -45,6 +48,15 @@ export function Home({ me }: { me: MeResponse }) {
             {t.web.notice.dismiss}
           </button>
         </p>
+      )}
+
+      {answers.map((item) => (
+        <AnswerCard key={item.id} item={item} />
+      ))}
+      {answers.length > 0 && (
+        <button type="button" onClick={dismissAll}>
+          {t.web.notice.dismiss}
+        </button>
       )}
 
       {assignment && <IncomingCard me={me} assignment={assignment} notify={setNotice} />}
