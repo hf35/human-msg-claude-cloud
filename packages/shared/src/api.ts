@@ -178,3 +178,14 @@ export const wsMessageSchema = z.object({
   event: eventSchema,
 });
 export type WsMessage = z.infer<typeof wsMessageSchema>;
+
+/** Answer of the sign-in routes: who has just signed in. */
+export const authResponseSchema = z.object({ alias: z.string(), locale });
+export type AuthResponse = z.infer<typeof authResponseSchema>;
+
+/** Answer of `POST /api/assignment/skip` and of the reports: the question concerned. */
+export const questionRefResponseSchema = z.object({ questionId: z.string() });
+export type QuestionRefResponse = z.infer<typeof questionRefResponseSchema>;
+
+/** Body of every refused request: a machine-readable reason (see `ACTION_ERRORS`). */
+export const errorResponseSchema = z.object({ error: z.string() });

@@ -51,6 +51,7 @@ pg_isready -h 127.0.0.1 -p 5432 -U humanmsg -d humanmsg
 | `pnpm test:watch`   | Тесты в режиме наблюдения                             |
 | `pnpm db:migrate`   | Применить миграции к базе из `DATABASE_URL`           |
 | `pnpm --filter @human-msg/server dev` | Сервер с перезапуском при изменениях (порт 3000) |
+| `pnpm --filter @human-msg/web dev` | Веб-интерфейс на Vite (порт 5173), `/api` проксируется на сервер |
 
 ### Запуск сервера
 
