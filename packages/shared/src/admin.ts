@@ -117,3 +117,40 @@ export type SettingsResponse = {
   settings: Settings;
   defaults: Settings;
 };
+
+/** `GET /admin/api/stats` query: the period is by the time the questions were asked. */
+export const adminStatsQuerySchema = z.object({
+  from: isoTime.optional(),
+  to: isoTime.optional(),
+  /** `true` counts test users' questions too. */
+  includeTest: flag.optional(),
+});
+export type AdminStatsQuery = z.infer<typeof adminStatsQuerySchema>;
+
+/** `GET /admin/api/stats`: the numbers the time settings are tuned by. */
+export const adminStatsSchema = z.object({
+  questions: z.object({
+    total: z.number().int(),
+    queued: z.number().int(),
+    assigned: z.number().int(),
+    answered: z.number().int(),
+    expired: z.number().int(),
+    /** Expired among answered + expired, 0..1; `null` while nothing has finished. */
+    expiredShare: z.number().min(0).max(1).nullable(),
+    answeredByStaff: z.number().int(),
+  }),
+  /** Seconds from asking to the answer of a person; `null` when there is none. */
+  averageSecondsToAnswer: z.number().nullable(),
+  assignments: z.object({
+    total: z.number().int(),
+    active: z.number().int(),
+    answered: z.number().int(),
+    skipped: z.number().int(),
+    timedOut: z.number().int(),
+    reported: z.number().int(),
+    undeliverable: z.number().int(),
+  }),
+  complaints: z.number().int(),
+  queueSize: z.number().int(),
+});
+export type AdminStatsDto = z.infer<typeof adminStatsSchema>;

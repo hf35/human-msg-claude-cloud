@@ -3,6 +3,7 @@ import type { Core, SettingsStore } from '@human-msg/core';
 import type { Config } from './config';
 import { registerAdminQuestions } from './admin/questions';
 import { registerAdminSettings } from './admin/settings';
+import { registerAdminStats } from './admin/stats';
 import { registerAdminTestUsers } from './admin/test-users';
 import { registerAdminUsers } from './admin/users';
 import { registerAdminAuth, type AdminAuthOptions } from './admin/auth';
@@ -84,6 +85,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     registerAdminUsers(app, { core });
     registerAdminQuestions(app, { core });
     registerAdminTestUsers(app, { core });
+    registerAdminStats(app, { core });
     if (settings) registerAdminSettings(app, { settings });
     registerStateRoutes(app, { core });
     registerActionRoutes(app, { core });
