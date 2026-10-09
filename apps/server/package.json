@@ -6,7 +6,18 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "tsx --env-file-if-exists=../../.env src/main.ts"
+  },
   "dependencies": {
-    "@human-msg/core": "workspace:*"
+    "@human-msg/core": "workspace:*",
+    "@human-msg/db": "workspace:*",
+    "@human-msg/shared": "workspace:*",
+    "fastify": "^5.12.5",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }
