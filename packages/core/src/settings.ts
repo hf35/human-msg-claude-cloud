@@ -39,6 +39,9 @@ export function createSettingsStore(options: SettingsStoreOptions): SettingsStor
   let cached: { settings: Settings; loadedAt: number } | undefined;
   // Concurrent readers share one query
   let loading: Promise<Settings> | undefined;
+  // Counts invalidations. A read that started before one may hold values from before the change,
+  // so it must not be cached.
+  let generation = 0;
 
   async function loadRaw(): Promise<Record<string, unknown>> {
     const rows = await db.select().from(settingsTable);
@@ -47,6 +50,9 @@ export function createSettingsStore(options: SettingsStoreOptions): SettingsStor
 
   function invalidate(): void {
     cached = undefined;
+    // The query in flight may predate the change; the next reader starts a new one
+    loading = undefined;
+    generation++;
   }
 
   return {
@@ -54,15 +60,19 @@ export function createSettingsStore(options: SettingsStoreOptions): SettingsStor
 
     async get() {
       if (cached && clock() - cached.loadedAt < cacheMs) return cached.settings;
-      loading ??= loadRaw()
-        .then((raw) => {
-          const settings = parseSettings(raw);
-          cached = { settings, loadedAt: clock() };
-          return settings;
-        })
-        .finally(() => {
-          loading = undefined;
-        });
+      if (!loading) {
+        const started = generation;
+        const load: Promise<Settings> = loadRaw()
+          .then((raw) => {
+            const settings = parseSettings(raw);
+            if (generation === started) cached = { settings, loadedAt: clock() };
+            return settings;
+          })
+          .finally(() => {
+            if (loading === load) loading = undefined;
+          });
+        loading = load;
+      }
       return loading;
     },
 
@@ -72,7 +82,7 @@ export function createSettingsStore(options: SettingsStoreOptions): SettingsStor
         return { ok: false, reason: 'unknown_key', issues: [`${unknown}: unknown setting`] };
       }
 
-      return db.transaction(async (tx) => {
+      const result = await db.transaction(async (tx) => {
         const rows = await tx.select().from(settingsTable);
         const raw = { ...Object.fromEntries(rows.map((row) => [row.key, row.value])), ...values };
         const parsed = settingsSchema.safeParse(raw);
@@ -89,9 +99,12 @@ export function createSettingsStore(options: SettingsStoreOptions): SettingsStor
               set: { value, updatedAt: new Date() },
             });
         }
-        invalidate();
         return { ok: true, value: parsed.data } satisfies SetSettingsResult;
       });
+      // Only after the commit: dropping the cache earlier lets a reader that runs before the commit
+      // cache the old values for the whole cache period
+      if (result.ok) invalidate();
+      return result;
     },
 
     async reset(...keys) {
