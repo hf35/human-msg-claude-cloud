@@ -3,6 +3,7 @@ import {
   processDeadlines,
   processExpiredQuestions,
   processQueue,
+  purgeOutbox,
   processReminders,
 } from './worker';
 
@@ -32,6 +33,8 @@ export interface WorkerOptions {
   core: Core;
   /** Pause between the end of one pass and the start of the next. */
   intervalMs: number;
+  /** How often delivered outbox events are cleaned up. Default: every 10 minutes. */
+  purgeIntervalMs?: number;
   /** Called when a pass fails; the worker keeps running. */
   onError?: (error: unknown) => void;
 }
@@ -47,14 +50,20 @@ export interface Worker {
  * reported to `onError` and does not stop the worker.
  */
 export function startWorker(options: WorkerOptions): Worker {
-  const { core, intervalMs, onError } = options;
+  const { core, intervalMs, purgeIntervalMs = 10 * 60 * 1000, onError } = options;
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let current: Promise<void> = Promise.resolve();
+  let lastPurge = Number.NEGATIVE_INFINITY;
 
   const pass = async () => {
     try {
       await tick(core);
+      // Cleanup is not urgent, so it runs on its own, slower schedule
+      if (Date.now() - lastPurge >= purgeIntervalMs) {
+        lastPurge = Date.now();
+        await purgeOutbox(core);
+      }
     } catch (error) {
       onError?.(error);
     }

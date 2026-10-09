@@ -25,6 +25,10 @@ export const outbox = pgTable(
     index('outbox_pending_idx')
       .on(table.nextAttemptAt)
       .where(sql`${table.deliveredAt} IS NULL`),
+    // Cleanup: delivered events that are old enough to delete
+    index('outbox_delivered_idx')
+      .on(table.deliveredAt)
+      .where(sql`${table.deliveredAt} IS NOT NULL`),
   ],
 );
 

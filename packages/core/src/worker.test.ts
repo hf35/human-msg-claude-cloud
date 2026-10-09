@@ -13,6 +13,7 @@ import {
   processExpiredQuestions,
   processQueue,
   processReminders,
+  purgeOutbox,
 } from './worker';
 
 let testDb: TestDatabase;
@@ -327,5 +328,37 @@ describe('processQueue', () => {
     time.advance(3 * HOUR + MINUTE);
     expect(await processQueue(core())).toBe(0);
     expect(await historyOf(questionId)).toHaveLength(0);
+  });
+});
+
+describe('purgeOutbox', () => {
+  const DAY = 24 * 60 * MINUTE;
+
+  it('deletes only delivered events older than the retention period', async () => {
+    const author = await createUser({ receivingEnabled: false });
+    await ask(author.id); // writes a `question.queued` event
+    await core().run(async (ctx) =>
+      ok(await ctx.tx.update(outbox).set({ deliveredAt: ctx.time.now() })),
+    );
+    await ask(await createUser({ receivingEnabled: false }).then((u) => u.id)); // stays undelivered
+
+    time.advance(6 * DAY);
+    expect(await purgeOutbox(core())).toBe(0);
+    time.advance(2 * DAY);
+    expect(await purgeOutbox(core())).toBe(1);
+    expect(await purgeOutbox(core())).toBe(0);
+    const left = await testDb.db.select().from(outbox);
+    expect(left).toHaveLength(1);
+    expect(left[0]!.deliveredAt).toBeNull();
+  });
+
+  it('removes at most `limit` rows per call', async () => {
+    for (let i = 0; i < 3; i++) await ask((await createUser({ receivingEnabled: false })).id);
+    await core().run(async (ctx) =>
+      ok(await ctx.tx.update(outbox).set({ deliveredAt: ctx.time.now() })),
+    );
+    time.advance(8 * DAY);
+    expect(await purgeOutbox(core(), 7 * 24 * 3600, 2)).toBe(2);
+    expect(await purgeOutbox(core(), 7 * 24 * 3600, 2)).toBe(1);
   });
 });

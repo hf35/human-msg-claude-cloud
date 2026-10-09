@@ -202,14 +202,15 @@ export async function requeueQuestion(ctx: CommandContext, questionId: string): 
     .update(questions)
     .set({ status: 'queued' })
     .where(eq(questions.id, questionId))
-    .returning();
-  const [alive] = await tx
-    .select({ alive: sql<boolean>`${question!.expiresAt} > ${time.now()}` })
-    .from(questions)
-    .where(eq(questions.id, questionId));
-  if (!alive!.alive) return;
-  const receiverId = await findReceiver(ctx, question!);
-  if (receiverId !== undefined) await assignQuestion(ctx, question!, receiverId);
+    .returning({
+      id: questions.id,
+      authorId: questions.authorId,
+      text: questions.text,
+      alive: sql<boolean>`${questions.expiresAt} > ${time.now()}`,
+    });
+  if (!question?.alive) return;
+  const receiverId = await findReceiver(ctx, question);
+  if (receiverId !== undefined) await assignQuestion(ctx, question, receiverId);
 }
 
 /**

@@ -143,6 +143,25 @@ describe('startWorker', () => {
     expect(started).toBe(after);
   });
 
+  it('cleans up old delivered outbox events on its own schedule', async () => {
+    const user = await createUser();
+    await testDb.db.insert(outbox).values([
+      {
+        userId: user.id,
+        type: 'question.queued',
+        payload: { questionId: user.id },
+        deliveredAt: new Date(Date.now() - 8 * 24 * 60 * MINUTE),
+      },
+      { userId: user.id, type: 'question.queued', payload: { questionId: user.id } },
+    ]);
+    const worker = startWorker({ core: core(), intervalMs: 10, purgeIntervalMs: 1000 });
+    for (let i = 0; i < 100 && (await testDb.db.select().from(outbox)).length > 1; i++) {
+      await sleep(20);
+    }
+    await worker.stop();
+    expect(await testDb.db.select().from(outbox)).toHaveLength(1);
+  });
+
   it('survives a failing pass and reports it', async () => {
     const errors: unknown[] = [];
     const broken: Core = {
