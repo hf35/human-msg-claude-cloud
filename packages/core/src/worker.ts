@@ -1,4 +1,4 @@
-import { assignments, outbox, questions } from '@human-msg/db';
+import { assignments, outbox, questions, users } from '@human-msg/db';
 import { and, asc, eq, gt, isNotNull, isNull, lt, lte, sql } from 'drizzle-orm';
 import type { Core } from './core';
 import { findReceiver, lockUser } from './matching';
@@ -45,6 +45,28 @@ export async function findDueAssignmentIds(
 }
 
 /**
+ * Counts a missed deadline for a Telegram user. After `AUTO_DND_AFTER_MISSED` misses in a row
+ * (answers and skips reset the count) "do not disturb" is switched on and the user is told, so
+ * people who tried the bot once and left stop wasting the time of questions. The user comes back
+ * with `/resume`. Web users are not counted: their availability follows the open page.
+ */
+async function recordMissedDeadline(ctx: CommandContext, receiverId: string): Promise<void> {
+  const { tx, settings } = ctx;
+  const [user] = await tx
+    .update(users)
+    .set({ missedDeadlines: sql`${users.missedDeadlines} + 1` })
+    .where(and(eq(users.id, receiverId), eq(users.channel, 'telegram')))
+    .returning({ missed: users.missedDeadlines });
+  const limit = settings.AUTO_DND_AFTER_MISSED;
+  if (!user || limit === 0 || user.missed < limit) return;
+  await tx
+    .update(users)
+    .set({ receivingEnabled: false, missedDeadlines: 0 })
+    .where(eq(users.id, receiverId));
+  await emit(tx, receiverId, { type: 'receiving.auto_disabled', missedDeadlines: user.missed });
+}
+
+/**
  * Ends one assignment whose deadline has passed: outcome `timed_out`, the receiver rests for
  * `COOLDOWN_SKIP`, the question goes on (to someone else or back to the queue), and the receiver
  * is told that the time is over (rule 7).
@@ -86,6 +108,8 @@ export async function timeOutAssignment(
     type: 'assignment.expired',
     questionId: assignment.questionId,
   });
+  // Before the question is sent on, so a user who just switched themselves off is not picked again
+  await recordMissedDeadline(ctx, assignment.receiverId);
   await releaseAssignment(ctx, assignment, 'timed_out', settings.COOLDOWN_SKIP);
   return true;
 }

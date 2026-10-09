@@ -178,7 +178,10 @@ export async function submitAnswer(
     responder!.channel === 'web' ? settings.COOLDOWN_WEB : settings.COOLDOWN_TELEGRAM;
   await tx
     .update(users)
-    .set({ cooldownUntil: sql`${time.now()} + ${cooldown} * interval '1 second'` })
+    .set({
+      cooldownUntil: sql`${time.now()} + ${cooldown} * interval '1 second'`,
+      missedDeadlines: 0,
+    })
     .where(eq(users.id, userId));
 
   await emit(tx, question!.authorId, {
@@ -233,6 +236,10 @@ export async function releaseAssignment(
       .update(users)
       .set({ cooldownUntil: sql`${time.now()} + ${cooldownSeconds} * interval '1 second'` })
       .where(eq(users.id, assignment.receiverId));
+  }
+  // A skip shows the user is around, so the count of missed deadlines starts again
+  if (outcome === 'skipped') {
+    await tx.update(users).set({ missedDeadlines: 0 }).where(eq(users.id, assignment.receiverId));
   }
   await requeueQuestion(ctx, assignment.questionId);
 }

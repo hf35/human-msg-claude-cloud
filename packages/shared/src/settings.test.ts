@@ -13,6 +13,7 @@ describe('settings', () => {
       QUIET_HOURS: '23:00-09:00',
       QUIET_HOURS_TZ: 'Europe/Moscow',
       QUESTIONS_PER_DAY: 10,
+      AUTO_DND_AFTER_MISSED: 3,
       MESSAGE_MAX_LENGTH: 2000,
     });
     expect(parseSettings()).toEqual(DEFAULT_SETTINGS);

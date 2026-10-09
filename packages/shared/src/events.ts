@@ -48,6 +48,11 @@ export const eventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('assignment.expired'), questionId: id }),
   /** To the author: nobody managed to answer in time. */
   z.object({ type: z.literal('question.expired'), questionId: id }),
+  /** To a Telegram user: too many missed deadlines in a row, "do not disturb" was switched on. */
+  z.object({
+    type: z.literal('receiving.auto_disabled'),
+    missedDeadlines: z.number().int().min(1),
+  }),
   /** To the sender: the message was refused. */
   z.object({
     type: z.literal('message.rejected'),

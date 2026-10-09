@@ -10,6 +10,7 @@ const examples: DomainEvent[] = [
     deadlineAt: '2026-01-01T10:30:00.000Z',
   },
   { type: 'question.queued', questionId: 'q' },
+  { type: 'receiving.auto_disabled', missedDeadlines: 3 },
   {
     type: 'answer.received',
     questionId: 'q',

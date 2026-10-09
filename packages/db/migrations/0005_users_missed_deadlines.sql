@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD COLUMN "missed_deadlines" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_missed_deadlines_not_negative" CHECK ("users"."missed_deadlines" >= 0);
