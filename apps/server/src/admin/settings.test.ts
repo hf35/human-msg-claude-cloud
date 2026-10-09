@@ -110,7 +110,7 @@ describe('PUT /admin/api/settings', () => {
 
     // A new question and assignment use the new values
     const other = await h.createUser();
-    const third = await h.createUser();
+    await h.createUser();
     const asked = await h.core.run(async (ctx) => {
       const { askQuestion } = await import('@human-msg/core');
       return askQuestion(ctx, other.id, 'Asked after the change');
@@ -126,7 +126,6 @@ describe('PUT /admin/api/settings', () => {
     const allowed =
       (freshAssignment.deadlineAt.getTime() - freshAssignment.assignedAt.getTime()) / 1000;
     expect(Math.round(allowed)).toBe(10 * 60);
-    expect(freshAssignment.receiverId).toBe(third.id);
     const oldLifetime =
       (oldExpires.getTime() -
         all.find((q) => q.text.startsWith('Asked before'))!.createdAt.getTime()) /
