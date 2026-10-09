@@ -10,6 +10,7 @@ import {
   type GoogleLoginRequest,
   type HistoryQuery,
   type ReportRequest,
+  type UpdateMeRequest,
 } from '@human-msg/shared';
 import type { z } from 'zod';
 
@@ -37,7 +38,11 @@ export interface ApiClientOptions {
  */
 export function createApiClient({ baseUrl = '', fetch: fetchImpl }: ApiClientOptions = {}) {
   /** Sends the request and returns the response of a success; throws `ApiError` otherwise. */
-  async function send(method: 'GET' | 'POST', path: string, body?: unknown): Promise<Response> {
+  async function send(
+    method: 'GET' | 'POST' | 'PATCH',
+    path: string,
+    body?: unknown,
+  ): Promise<Response> {
     let response: Response;
     try {
       // Looked up on each call so a test can replace the global `fetch`
@@ -61,7 +66,7 @@ export function createApiClient({ baseUrl = '', fetch: fetchImpl }: ApiClientOpt
   }
 
   async function request<S extends z.ZodType>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PATCH',
     path: string,
     schema: S,
     body?: unknown,
@@ -71,6 +76,7 @@ export function createApiClient({ baseUrl = '', fetch: fetchImpl }: ApiClientOpt
 
   return {
     me: () => request('GET', '/api/me', meResponseSchema),
+    updateMe: (body: UpdateMeRequest) => request('PATCH', '/api/me', meResponseSchema, body),
     state: () => request('GET', '/api/state', stateResponseSchema),
     history: (query: Partial<HistoryQuery> = {}) => {
       const params = new URLSearchParams();

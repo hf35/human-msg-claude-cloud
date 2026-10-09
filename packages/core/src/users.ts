@@ -156,3 +156,20 @@ export const createStaffUser = (
   input: InternalUserInput = {},
   { random = Math.random }: Options = {},
 ) => createInternalUser(tx, { isStaff: true }, input, random);
+
+/**
+ * Changes the language of the user's interface and notifications. The alias stays as it was
+ * given at registration, whatever the language.
+ */
+export async function setUserLocale(
+  tx: Tx,
+  userId: string,
+  locale: Locale,
+): Promise<'ok' | 'user_not_found'> {
+  const updated = await tx
+    .update(users)
+    .set({ locale })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id });
+  return updated.length === 0 ? 'user_not_found' : 'ok';
+}

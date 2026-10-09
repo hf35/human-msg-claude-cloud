@@ -54,6 +54,7 @@ describe('texts', () => {
       expect(t.notifications.answerReceived('Green Rabbit')).toContain('Green Rabbit');
       expect(t.notifications.answerReminder(5)).toContain('5');
       expect(t.bot.start('Green Rabbit')).toContain('Green Rabbit');
+      expect(t.web.header.signedInAs('Green Rabbit')).toContain('Green Rabbit');
       const both = t.notifications.questionAndAnswer('QQQ', 'AAA');
       expect(both).toContain('QQQ');
       expect(both).toContain('AAA');
