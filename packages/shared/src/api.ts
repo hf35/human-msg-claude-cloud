@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { eventSchema } from './events';
 import { LOCALES } from './texts';
 
 /**
@@ -166,3 +167,14 @@ export const historyResponseSchema = z.object({
   nextCursor: z.string().nullable(),
 });
 export type HistoryResponse = z.infer<typeof historyResponseSchema>;
+
+/**
+ * A message the server sends over the WebSocket: one event of the outbox. Delivery is at least
+ * once, so a client ignores a message whose `id` it has already seen.
+ */
+export const wsMessageSchema = z.object({
+  id: z.number().int(),
+  createdAt: isoTime,
+  event: eventSchema,
+});
+export type WsMessage = z.infer<typeof wsMessageSchema>;

@@ -12,10 +12,15 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app';
 import type { Config } from './config';
 import { createGoogleVerifier, type GoogleTokenVerifier } from './web/google';
-import { startDispatcher, startOutboxListener, type ChannelAdapters } from './delivery';
+import {
+  createWebSocketAdapter,
+  startDispatcher,
+  startOutboxListener,
+  type ChannelAdapters,
+} from './delivery';
 
 export interface StartServerOptions {
-  /** Delivery adapters by channel; channels without one keep their events in the outbox. */
+  /** Delivery adapters by channel; they replace the built-in ones (web: WebSocket). */
   adapters?: ChannelAdapters;
   /** Where "now" comes from; tests move it. Defaults to the database clock. */
   time?: TimeSource;
@@ -93,7 +98,7 @@ export async function startServer(
     });
     dispatcher = startDispatcher({
       core,
-      adapters,
+      adapters: { web: createWebSocketAdapter(app.connections), ...adapters },
       intervalMs: config.dispatchIntervalMs,
       onFailure: ({ delivery, error, willRetry }) =>
         app.log.warn({ err: error, delivery, willRetry }, 'event delivery failed'),
