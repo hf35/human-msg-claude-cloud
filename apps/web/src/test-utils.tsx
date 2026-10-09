@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { MeResponse, StateResponse, WsMessage } from '@human-msg/shared';
+import type { HistoryResponse, MeResponse, StateResponse, WsMessage } from '@human-msg/shared';
 import { render, type RenderResult } from '@testing-library/react';
 import { vi } from 'vitest';
 import { App } from './App';
@@ -66,6 +66,7 @@ export function fakeBackend() {
       messageMaxLength: 2000,
     } as MeResponse,
     state: { assignment: null, pendingQuestion: null } as StateResponse,
+    history: { items: [], nextCursor: null } as HistoryResponse,
     /** Overrides: `"METHOD /path"` → response, for refusals and special answers. */
     overrides: new Map<string, () => Response>(),
   };
@@ -90,6 +91,7 @@ export function fakeBackend() {
     if (!state.signedIn) return json({ error: 'unauthorized' }, 401);
     if (method === 'GET' && url === '/api/me') return json(state.me);
     if (method === 'GET' && url === '/api/state') return json(state.state);
+    if (method === 'GET' && url.startsWith('/api/history')) return json(state.history);
     if (method === 'PATCH' && url === '/api/me') {
       state.me = { ...state.me, locale: body.locale };
       return json(state.me);
@@ -98,6 +100,9 @@ export function fakeBackend() {
       // Whatever a busy user writes is the answer
       state.state = { ...state.state, assignment: null };
       return json({ kind: 'answered', questionId: 'q-in' });
+    }
+    if (method === 'POST' && url === '/api/reports' && body.target === 'answer') {
+      return json({ questionId: body.questionId });
     }
     if (method === 'POST' && (url === '/api/assignment/skip' || url === '/api/reports')) {
       state.state = { ...state.state, assignment: null };
