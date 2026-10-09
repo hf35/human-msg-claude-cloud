@@ -43,7 +43,7 @@ export interface RunningServer {
 
 /**
  * Assembles and starts every module of the server process: the HTTP API, the worker, the outbox
- * dispatcher with its NOTIFY listener. The Telegram bot joins them in stage 9. Modules talk to
+ * dispatcher with its NOTIFY listener. The Telegram bot delivers through the same dispatcher. Modules talk to
  * the database only through the core.
  *
  * On start the server removes the web connections it had before a crash or restart. Schema
@@ -99,9 +99,30 @@ export async function startServer(
       intervalMs: config.workerIntervalMs,
       onError: (error) => app.log.error({ err: error }, 'worker pass failed'),
     });
+    // Before listening: a wrong token must stop the start, not leave a server without its bot.
+    // Started before the dispatcher, which delivers Telegram events through the bot
+    if (config.telegram) {
+      telegram = await startTelegram({
+        token: config.telegram.token,
+        core,
+        app,
+        mode: config.telegram.mode,
+        ...(config.telegram.webhook && { webhook: config.telegram.webhook }),
+        ...(config.telegram.apiRoot && { apiRoot: config.telegram.apiRoot }),
+        log: {
+          info: (message) => app.log.info(message),
+          error: (object, message) => app.log.error(object, message),
+        },
+      });
+    }
+
     dispatcher = startDispatcher({
       core,
-      adapters: { web: createWebSocketAdapter(app.connections), ...adapters },
+      adapters: {
+        web: createWebSocketAdapter(app.connections),
+        ...(telegram && { telegram: telegram.adapter }),
+        ...adapters,
+      },
       intervalMs: config.dispatchIntervalMs,
       onFailure: ({ delivery, error, willRetry }) =>
         app.log.warn({ err: error, delivery, willRetry }, 'event delivery failed'),
@@ -113,19 +134,6 @@ export async function startServer(
       onError: (error) => app.log.warn({ err: error }, 'outbox listener lost its connection'),
       reconnectDelayMs: listenerReconnectMs,
     });
-
-    // Before listening: a wrong token must stop the start, not leave a server without its bot
-    if (config.telegram) {
-      telegram = await startTelegram({
-        token: config.telegram.token,
-        core,
-        ...(config.telegram.apiRoot && { apiRoot: config.telegram.apiRoot }),
-        log: {
-          info: (message) => app.log.info(message),
-          error: (object, message) => app.log.error(object, message),
-        },
-      });
-    }
 
     const address = await app.listen({ host: config.host, port: config.port });
     return { app, core, settings, address, stop };

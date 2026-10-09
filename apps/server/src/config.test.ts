@@ -102,9 +102,29 @@ describe('loadConfig', () => {
         DATABASE_URL,
         TELEGRAM_BOT_TOKEN: '1:abc',
         TELEGRAM_MODE: 'webhook',
+        TELEGRAM_WEBHOOK_SECRET: 'sec_ret-1',
+        PUBLIC_URL: 'https://example.com/',
         TELEGRAM_API_ROOT: 'http://localhost:8081',
       }).telegram,
-    ).toEqual({ token: '1:abc', mode: 'webhook', apiRoot: 'http://localhost:8081' });
+    ).toEqual({
+      token: '1:abc',
+      mode: 'webhook',
+      apiRoot: 'http://localhost:8081',
+      webhook: { url: 'https://example.com', secret: 'sec_ret-1' },
+    });
+  });
+
+  it('refuses webhook mode without a secret or a public address', () => {
+    const base = { DATABASE_URL, TELEGRAM_BOT_TOKEN: '1:abc', TELEGRAM_MODE: 'webhook' };
+    expect(() => loadConfig(base)).toThrow(/TELEGRAM_WEBHOOK_SECRET/);
+    expect(() => loadConfig({ ...base, TELEGRAM_WEBHOOK_SECRET: 'abc' })).toThrow(/PUBLIC_URL/);
+    expect(() =>
+      loadConfig({
+        ...base,
+        PUBLIC_URL: 'https://example.com',
+        TELEGRAM_WEBHOOK_SECRET: 'bad secret!',
+      }),
+    ).toThrow(/TELEGRAM_WEBHOOK_SECRET/);
   });
 
   it('refuses an unknown Telegram mode', () => {

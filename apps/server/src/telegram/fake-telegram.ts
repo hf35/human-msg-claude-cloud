@@ -65,6 +65,19 @@ export class FakeTelegram {
     });
   }
 
+  /** A photo, which the bot cannot take as a question. */
+  photo(from: { id: number; language_code?: string }): number {
+    return this.push({
+      message: {
+        message_id: this.messageId++,
+        date: Math.floor(Date.now() / 1000),
+        chat: { id: from.id, type: 'private' },
+        from: { is_bot: false, first_name: 'Test', ...from },
+        photo: [{ file_id: 'f', file_unique_id: 'u', width: 1, height: 1 }],
+      },
+    });
+  }
+
   /** A press of an inline button under a bot message. */
   callback(from: { id: number }, data: string, chatId = from.id): number {
     return this.push({

@@ -37,6 +37,16 @@ const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: optional(z.string().trim()),
   // How updates arrive: the bot asks Telegram (polling, for development) or Telegram calls us
   TELEGRAM_MODE: z.enum(['polling', 'webhook']).default('polling'),
+  // Shared secret of the webhook: Telegram sends it in a header, requests without it are refused.
+  // Telegram allows letters, digits, "_" and "-", up to 256 characters
+  TELEGRAM_WEBHOOK_SECRET: optional(
+    z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_-]{1,256}$/),
+  ),
+  // Public address of this service (https), where Telegram posts webhook updates
+  PUBLIC_URL: optional(z.url()),
   // Address of the Bot API; the official one unless a local Bot API server is used
   TELEGRAM_API_ROOT: optional(z.url()),
   // Seconds between WebSocket pings; a connection that misses one pong is closed
@@ -57,7 +67,13 @@ export interface Config {
   /** Sign-in without Google; only ever true when `nodeEnv` is `development`. */
   devLogin: boolean;
   /** Telegram bot settings; absent when no token is configured. */
-  telegram?: { token: string; mode: 'polling' | 'webhook'; apiRoot?: string };
+  telegram?: {
+    token: string;
+    mode: 'polling' | 'webhook';
+    apiRoot?: string;
+    /** Set in webhook mode: where Telegram posts updates and the secret it must send. */
+    webhook?: { url: string; secret: string };
+  };
   serverId: string;
   wsPingIntervalMs: number;
   workerIntervalMs: number;
@@ -78,6 +94,19 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     // A forgotten flag must not open a passwordless door; failing loudly beats ignoring it
     throw new Error('Invalid configuration: DEV_LOGIN: allowed only when NODE_ENV=development');
   }
+  let webhook: { url: string; secret: string } | undefined;
+  if (values.TELEGRAM_BOT_TOKEN && values.TELEGRAM_MODE === 'webhook') {
+    // A webhook without a secret would accept updates forged by anyone who finds the address
+    if (!values.TELEGRAM_WEBHOOK_SECRET || !values.PUBLIC_URL) {
+      throw new Error(
+        'Invalid configuration: TELEGRAM_MODE=webhook needs TELEGRAM_WEBHOOK_SECRET and PUBLIC_URL',
+      );
+    }
+    webhook = {
+      url: values.PUBLIC_URL.replace(/\/+$/, ''),
+      secret: values.TELEGRAM_WEBHOOK_SECRET,
+    };
+  }
   return {
     nodeEnv: values.NODE_ENV,
     host: values.HOST,
@@ -90,6 +119,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       telegram: {
         token: values.TELEGRAM_BOT_TOKEN,
         mode: values.TELEGRAM_MODE,
+        ...(webhook && { webhook }),
         ...(values.TELEGRAM_API_ROOT && { apiRoot: values.TELEGRAM_API_ROOT }),
       },
     }),
