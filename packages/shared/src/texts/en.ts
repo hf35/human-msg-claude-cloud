@@ -68,10 +68,16 @@ export const en: Texts = {
     connection: {
       reconnecting: 'No connection to the server, reconnecting…',
     },
+    ask: {
+      title: 'Ask a question',
+      placeholder: 'Write what you would like to ask…',
+      send: 'Send',
+      remaining: (count: number) => `Questions left today: ${count}`,
+      assigned: 'Someone is already answering — waiting for the reply.',
+    },
     state: {
       waiting: 'Your question is waiting for an answer:',
       incoming: 'You have a question:',
-      idle: 'Nothing is happening yet.',
     },
   },
 

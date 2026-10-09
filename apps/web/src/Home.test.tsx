@@ -52,7 +52,7 @@ describe('Home and the WebSocket', () => {
     const { state, sockets } = fakeBackend();
     state.signedIn = true;
     renderApp();
-    await screen.findByText('Пока ничего не происходит.');
+    await screen.findByRole('heading', { name: 'Задайте вопрос' });
     act(() => sockets.last.open());
 
     // The server now has a question for the user, and says so over the socket
@@ -90,11 +90,11 @@ describe('Home and the WebSocket', () => {
       const { state, sockets } = fakeBackend();
       state.signedIn = true;
       renderApp();
-      await screen.findByText('Пока ничего не происходит.');
+      await screen.findByRole('heading', { name: 'Задайте вопрос' });
       act(() => sockets.last.open());
 
       act(() => sockets.last.drop());
-      expect((await screen.findByRole('status')).textContent).toContain('переподключаемся');
+      expect(await screen.findByText(/переподключаемся/)).toBeTruthy();
 
       // While the socket was down the question was answered, and nobody could tell the page
       state.state = queuedState;
@@ -105,7 +105,7 @@ describe('Home and the WebSocket', () => {
       act(() => sockets.last.open());
 
       expect((await screen.findByTestId('pending')).textContent).toContain('Anybody there?');
-      await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+      await waitFor(() => expect(screen.queryByText(/переподключаемся/)).toBeNull());
     } finally {
       vi.useRealTimers();
     }

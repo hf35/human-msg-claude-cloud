@@ -75,6 +75,8 @@ export const meResponseSchema = z.object({
     used: z.number().int(),
     remaining: z.number().int(),
   }),
+  /** The longest message the server accepts (a product setting that can change). */
+  messageMaxLength: z.number().int(),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
 

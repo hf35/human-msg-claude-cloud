@@ -63,6 +63,7 @@ export function fakeBackend() {
       busy: false,
       cooldownUntil: null,
       questionLimit: { limit: 10, used: 0, remaining: 10 },
+      messageMaxLength: 2000,
     } as MeResponse,
     state: { assignment: null, pendingQuestion: null } as StateResponse,
     /** Overrides: `"METHOD /path"` → response, for refusals and special answers. */
@@ -92,6 +93,28 @@ export function fakeBackend() {
     if (method === 'PATCH' && url === '/api/me') {
       state.me = { ...state.me, locale: body.locale };
       return json(state.me);
+    }
+    if (method === 'POST' && url === '/api/messages') {
+      // The default server accepts the text as a new question that waits in the queue
+      state.state = {
+        assignment: null,
+        pendingQuestion: {
+          questionId: 'q-new',
+          text: body.text.trim(),
+          status: 'queued',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          expiresAt: '2026-01-01T03:00:00.000Z',
+        },
+      };
+      state.me = {
+        ...state.me,
+        awaitingAnswer: true,
+        questionLimit: {
+          ...state.me.questionLimit,
+          remaining: state.me.questionLimit.remaining - 1,
+        },
+      };
+      return json({ kind: 'asked', questionId: 'q-new', status: 'queued' });
     }
     return json({ error: 'not_found' }, 404);
   };

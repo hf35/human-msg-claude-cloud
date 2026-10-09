@@ -52,6 +52,7 @@ describe('a free user', () => {
       busy: false,
       cooldownUntil: null,
       questionLimit: { limit: 10, used: 0, remaining: 10 },
+      messageMaxLength: 2000,
     });
 
     const state = await get(h, '/api/state', cookies);
