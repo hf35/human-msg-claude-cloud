@@ -1,15 +1,34 @@
-import { assignments, questions } from '@human-msg/db';
-import { and, asc, eq, gt, isNull, lte, sql } from 'drizzle-orm';
+import { assignments, outbox, questions } from '@human-msg/db';
+import { and, asc, eq, gt, isNotNull, isNull, lt, lte, sql } from 'drizzle-orm';
 import type { Core } from './core';
-import { lockUser } from './matching';
+import { findReceiver, lockUser } from './matching';
 import { emit } from './outbox';
-import { findReceiver } from './matching';
 import { assignQuestion, releaseAssignment } from './questions';
 import { ok } from './result';
 import type { CommandContext } from './context';
 
 /** How many records one worker step takes per pass. */
 export const WORKER_BATCH_SIZE = 100;
+
+/**
+ * The shape shared by every worker step: find the ids of the records that need work, then handle
+ * each one in its own transaction, so one failure does not hold the others back. `handle`
+ * returns `false` when there was nothing to do. Returns how many records were handled.
+ */
+async function forEachRecord(
+  core: Core,
+  find: (ctx: CommandContext) => Promise<string[]>,
+  handle: (ctx: CommandContext, id: string) => Promise<boolean>,
+): Promise<number> {
+  const found = await core.run(async (ctx) => ok(await find(ctx)));
+  if (!found.ok) return 0;
+  let done = 0;
+  for (const id of found.value) {
+    const result = await core.run(async (ctx) => ok(await handle(ctx, id)));
+    if (result.ok && result.value) done++;
+  }
+  return done;
+}
 
 /** Ids of active assignments whose deadline has passed, oldest deadline first. */
 export async function findDueAssignmentIds(
@@ -77,14 +96,7 @@ export async function timeOutAssignment(
  * timed out.
  */
 export async function processDeadlines(core: Core): Promise<number> {
-  const due = await core.run(async (ctx) => ok(await findDueAssignmentIds(ctx)));
-  if (!due.ok) return 0;
-  let done = 0;
-  for (const id of due.value) {
-    const result = await core.run(async (ctx) => ok(await timeOutAssignment(ctx, id)));
-    if (result.ok && result.value) done++;
-  }
-  return done;
+  return forEachRecord(core, findDueAssignmentIds, timeOutAssignment);
 }
 
 /**
@@ -171,14 +183,7 @@ export async function remindAssignment(
 
 /** Worker step 2: sends the due reminders, one transaction each. Returns how many were sent. */
 export async function processReminders(core: Core): Promise<number> {
-  const due = await core.run(async (ctx) => ok(await findReminderAssignmentIds(ctx)));
-  if (!due.ok) return 0;
-  let done = 0;
-  for (const id of due.value) {
-    const result = await core.run(async (ctx) => ok(await remindAssignment(ctx, id)));
-    if (result.ok && result.value) done++;
-  }
-  return done;
+  return forEachRecord(core, findReminderAssignmentIds, remindAssignment);
 }
 
 /** Ids of queued questions whose lifetime is over, oldest first. */
@@ -223,14 +228,7 @@ export async function expireQuestion(ctx: CommandContext, questionId: string): P
 
 /** Worker step 3: expires the queued questions that ran out of time. Returns how many. */
 export async function processExpiredQuestions(core: Core): Promise<number> {
-  const due = await core.run(async (ctx) => ok(await findExpiredQuestionIds(ctx)));
-  if (!due.ok) return 0;
-  let done = 0;
-  for (const id of due.value) {
-    const result = await core.run(async (ctx) => ok(await expireQuestion(ctx, id)));
-    if (result.ok && result.value) done++;
-  }
-  return done;
+  return forEachRecord(core, findExpiredQuestionIds, expireQuestion);
 }
 
 /** Ids of queued questions that are still alive, oldest first (FIFO, rule 5). */
@@ -283,12 +281,41 @@ export async function dispatchQueuedQuestion(
  * were assigned.
  */
 export async function processQueue(core: Core): Promise<number> {
-  const queued = await core.run(async (ctx) => ok(await findQueuedQuestionIds(ctx)));
-  if (!queued.ok) return 0;
-  let done = 0;
-  for (const id of queued.value) {
-    const result = await core.run(async (ctx) => ok(await dispatchQueuedQuestion(ctx, id)));
-    if (result.ok && result.value) done++;
-  }
-  return done;
+  return forEachRecord(core, findQueuedQuestionIds, dispatchQueuedQuestion);
+}
+
+/** How long delivered events stay in the outbox before the worker deletes them. */
+export const OUTBOX_RETENTION_SECONDS = 7 * 24 * 60 * 60;
+
+/**
+ * Deletes delivered outbox events older than `retentionSeconds` (at most `limit` per call), so
+ * the table, which holds copies of question and answer texts, does not grow forever. Events that
+ * are not delivered yet are never deleted. Returns how many rows were removed.
+ */
+export async function purgeOutbox(
+  core: Core,
+  retentionSeconds = OUTBOX_RETENTION_SECONDS,
+  limit = 1000,
+): Promise<number> {
+  const result = await core.run(async (ctx) => {
+    const old = ctx.tx
+      .select({ id: outbox.id })
+      .from(outbox)
+      .where(
+        and(
+          isNotNull(outbox.deliveredAt),
+          lt(
+            outbox.deliveredAt,
+            sql`${ctx.time.now()} - ${retentionSeconds} * interval '1 second'`,
+          ),
+        ),
+      )
+      .limit(limit);
+    const deleted = await ctx.tx
+      .delete(outbox)
+      .where(sql`${outbox.id} IN (${old})`)
+      .returning({ id: outbox.id });
+    return ok(deleted.length);
+  });
+  return result.ok ? result.value : 0;
 }

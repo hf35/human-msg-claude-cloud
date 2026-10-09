@@ -1,0 +1,1 @@
+CREATE INDEX "outbox_delivered_idx" ON "outbox" USING btree ("delivered_at") WHERE "outbox"."delivered_at" IS NOT NULL;
