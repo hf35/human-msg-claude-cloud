@@ -94,6 +94,15 @@ export function fakeBackend() {
       state.me = { ...state.me, locale: body.locale };
       return json(state.me);
     }
+    if (method === 'POST' && url === '/api/messages' && state.state.assignment) {
+      // Whatever a busy user writes is the answer
+      state.state = { ...state.state, assignment: null };
+      return json({ kind: 'answered', questionId: 'q-in' });
+    }
+    if (method === 'POST' && (url === '/api/assignment/skip' || url === '/api/reports')) {
+      state.state = { ...state.state, assignment: null };
+      return json({ questionId: 'q-in' });
+    }
     if (method === 'POST' && url === '/api/messages') {
       // The default server accepts the text as a new question that waits in the queue
       state.state = {

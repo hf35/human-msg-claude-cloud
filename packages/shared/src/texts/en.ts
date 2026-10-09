@@ -75,9 +75,21 @@ export const en: Texts = {
       remaining: (count: number) => `Questions left today: ${count}`,
       assigned: 'Someone is already answering — waiting for the reply.',
     },
+    incoming: {
+      from: (alias: string) => `Question from "${alias}"`,
+      timeLeft: (time: string) => `Time left: ${time}`,
+      timeUp: 'Time is up',
+      placeholder: 'Write your answer…',
+      send: 'Answer',
+      reportConfirm: 'You will no longer get questions from this person. Report?',
+      reportYes: 'Yes, report',
+      cancel: 'Cancel',
+    },
+    notice: {
+      dismiss: 'Close',
+    },
     state: {
       waiting: 'Your question is waiting for an answer:',
-      incoming: 'You have a question:',
     },
   },
 

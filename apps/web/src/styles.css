@@ -45,3 +45,29 @@ button {
   font: inherit;
   padding: 0.4rem 0.7rem;
 }
+blockquote {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid #8888;
+  white-space: pre-wrap;
+}
+textarea {
+  font: inherit;
+  padding: 0.5rem;
+}
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.confirm {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.notice {
+  background: #8882;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+}

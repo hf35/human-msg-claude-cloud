@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import type { MeResponse } from '@human-msg/shared';
 import { api } from './api';
 import { AskPanel } from './AskPanel';
+import { IncomingCard } from './IncomingCard';
 import { useI18n } from './i18n';
 import { useRealtime } from './useRealtime';
 
@@ -9,7 +11,12 @@ import { useRealtime } from './useRealtime';
 export function Home({ me }: { me: MeResponse }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const connection = useRealtime();
+  // One line of news that is not an error of a form ("time is up", "reported"); the user closes it
+  const [notice, setNotice] = useState<string | null>(null);
+  const connection = useRealtime((event) => {
+    if (event.type === 'assignment.expired') setNotice(t.notifications.assignmentExpired);
+    if (event.type === 'question.expired') setNotice(t.notifications.questionExpired);
+  });
   const state = useQuery({ queryKey: ['state'], queryFn: api.state });
 
   async function signOut() {
@@ -31,12 +38,16 @@ export function Home({ me }: { me: MeResponse }) {
         </p>
       )}
 
-      {/* Plain placeholder: the card of the incoming question comes with the next task */}
-      {assignment && (
-        <p data-testid="incoming">
-          {t.web.state.incoming} {assignment.text}
+      {notice && (
+        <p role="status" className="notice" data-testid="notice">
+          {notice}{' '}
+          <button type="button" onClick={() => setNotice(null)}>
+            {t.web.notice.dismiss}
+          </button>
         </p>
       )}
+
+      {assignment && <IncomingCard me={me} assignment={assignment} notify={setNotice} />}
       {state.data && !assignment && <AskPanel me={me} pendingQuestion={pendingQuestion ?? null} />}
       {state.data && assignment && pendingQuestion && (
         <p className="hint" data-testid="pending">
