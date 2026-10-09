@@ -16,6 +16,7 @@
     "@human-msg/db": "workspace:*",
     "@human-msg/shared": "workspace:*",
     "fastify": "^5.12.5",
+    "google-auth-library": "^11.2.0",
     "pg": "^8.23.1",
     "zod": "^4.6.5"
   },

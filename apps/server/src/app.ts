@@ -1,12 +1,16 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Core } from '@human-msg/core';
 import type { Config } from './config';
+import { registerAuthRoutes } from './web/auth';
+import type { GoogleTokenVerifier } from './web/google';
 import { registerSessions } from './web/session';
 
 export interface AppOptions {
-  config: Pick<Config, 'logLevel'> & Partial<Pick<Config, 'nodeEnv'>>;
+  config: Pick<Config, 'logLevel'> & Partial<Pick<Config, 'nodeEnv' | 'devLogin'>>;
   /** The core behind the web API; without it only `/health` is served. */
   core?: Core;
+  /** Checks Google ID tokens; without it `POST /api/auth/google` answers 503. */
+  googleVerifier?: GoogleTokenVerifier;
   /**
    * Checks that what the process depends on (the database) is reachable; rejects when it is not.
    * Without it `/health` only proves that the process is up.
@@ -19,7 +23,7 @@ export interface AppOptions {
  * Modules (web API, backoffice API, WebSocket) are registered here as they appear.
  */
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
-  const { config, core, healthCheck } = options;
+  const { config, core, googleVerifier, healthCheck } = options;
   const app = Fastify({ logger: { level: config.logLevel } });
 
   app.get('/health', async (request, reply) => {
@@ -37,6 +41,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   if (core) {
     await registerSessions(app, { core, secureCookies: config.nodeEnv === 'production' });
+    registerAuthRoutes(app, {
+      core,
+      googleVerifier,
+      // Double lock: the flag is honoured only in development, whatever the caller passed
+      devLogin: config.devLogin === true && config.nodeEnv === 'development',
+    });
   }
 
   return app;

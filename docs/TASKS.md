@@ -208,7 +208,7 @@
 - [x] **7.1 Сессии.** Таблица `sessions`, выдача и проверка httpOnly-cookie,
   middleware «текущий пользователь». **Проверка:** тесты через
   `fastify.inject`.
-- [ ] **7.2 Вход через Google.** `POST /api/auth/google`: проверка ID-токена,
+- [x] **7.2 Вход через Google.** `POST /api/auth/google`: проверка ID-токена,
   создание пользователя, сессия; `POST /api/auth/logout`. Для разработки —
   флаг dev-входа без Google (только при `NODE_ENV=development`).
   **Проверка:** тест с подменой проверки токена; dev-вход отключён в проде.
