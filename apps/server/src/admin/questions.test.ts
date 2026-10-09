@@ -1,4 +1,4 @@
-import { answers, assignments, questions } from '@human-msg/db';
+import { answers, assignments, outbox, questions } from '@human-msg/db';
 import { createTestDatabase, type TestDatabase } from '@human-msg/db/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createAdminHarness, type AdminHarness } from './testing';
@@ -144,5 +144,81 @@ describe('GET /admin/api/questions', () => {
     for (const query of ['status=done', 'authorId=x', 'limit=0']) {
       expect((await h.get(`/admin/api/questions?${query}`)).statusCode).toBe(400);
     }
+  });
+});
+
+describe('POST /admin/api/questions/:id/staff-answer', () => {
+  const answerUrl = (id: string) => `/admin/api/questions/${id}/staff-answer`;
+
+  it('needs the back office session', async () => {
+    const response = await h.app.inject({
+      method: 'POST',
+      url: answerUrl('00000000-0000-4000-8000-000000000000'),
+      payload: { text: 'hello there' },
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('answers an expired question: a normal answer by a staff user, delivered to the author', async () => {
+    const author = await h.createUser({ alias: 'Waiting', locale: 'en' });
+    const q = await question(author.id, 'Anyone out there?', 'expired');
+
+    const response = await h.send('POST', answerUrl(q.id), { text: '  We hear you.  ' });
+    expect(response.statusCode).toBe(201);
+
+    const [item] = (await h.get('/admin/api/questions?status=answered')).json().items;
+    expect(item).toMatchObject({ id: q.id, status: 'answered', answer: { text: 'We hear you.' } });
+    // The responder is a staff user with an alias like any other, in the author's language
+    expect(item.answer.responderAlias).not.toMatch(/[А-Яа-яЁё]/);
+    const [responder] = (await h.get('/admin/api/users?isStaff=true')).json().items;
+    expect(responder.alias).toBe(item.answer.responderAlias);
+
+    // The author gets the usual event, without any mark of the team
+    const [event] = await testDb.db.select().from(outbox);
+    expect(event).toMatchObject({ userId: author.id, type: 'answer.received' });
+    expect(event!.payload).toEqual({
+      questionId: q.id,
+      questionText: 'Anyone out there?',
+      answerText: 'We hear you.',
+      responderAlias: responder.alias,
+    });
+  });
+
+  it('refuses a second answer and answers to questions that are not expired', async () => {
+    const author = await h.createUser();
+    const other = await h.createUser();
+    const expired = await question(author.id, 'Old', 'expired');
+    const queued = await question(other.id, 'Fresh', 'queued');
+
+    expect((await h.send('POST', answerUrl(expired.id), { text: 'First reply' })).statusCode).toBe(
+      201,
+    );
+    const again = await h.send('POST', answerUrl(expired.id), { text: 'Second reply' });
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toEqual({ error: 'not_expired' });
+    expect((await h.send('POST', answerUrl(queued.id), { text: 'Too early' })).statusCode).toBe(
+      409,
+    );
+    expect(await testDb.db.select().from(answers)).toHaveLength(1);
+  });
+
+  it('refuses bad text, unknown questions and malformed bodies', async () => {
+    const author = await h.createUser();
+    const q = await question(author.id, 'Old', 'expired');
+
+    const empty = await h.send('POST', answerUrl(q.id), { text: '   ' });
+    expect(empty.statusCode).toBe(400);
+    expect(empty.json().error).toBe('empty');
+    expect((await h.send('POST', answerUrl(q.id), { text: 'x' })).json().error).toBe('tooShort');
+    expect((await h.send('POST', answerUrl(q.id), { text: 'x'.repeat(2001) })).json().error).toBe(
+      'tooLong',
+    );
+    expect((await h.send('POST', answerUrl(q.id), {})).statusCode).toBe(400);
+    expect(
+      (await h.send('POST', answerUrl('00000000-0000-4000-8000-000000000000'), { text: 'hello' }))
+        .statusCode,
+    ).toBe(404);
+    expect((await h.send('POST', answerUrl('nope'), { text: 'hello' })).statusCode).toBe(404);
+    expect(await testDb.db.select().from(answers)).toHaveLength(0);
   });
 });

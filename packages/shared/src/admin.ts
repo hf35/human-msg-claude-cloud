@@ -95,3 +95,7 @@ export const adminQuestionsResponseSchema = z.object({
   total: z.number().int(),
 });
 export type AdminQuestionsResponse = z.infer<typeof adminQuestionsResponseSchema>;
+
+/** `POST /admin/api/questions/:id/staff-answer` body. */
+export const staffAnswerRequestSchema = z.object({ text: z.string().max(20_000) });
+export type StaffAnswerRequest = z.infer<typeof staffAnswerRequestSchema>;
