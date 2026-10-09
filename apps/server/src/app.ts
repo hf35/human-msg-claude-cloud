@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type { Core } from '@human-msg/core';
 import type { Config } from './config';
 import { registerAdminQuestions } from './admin/questions';
+import { registerAdminTestUsers } from './admin/test-users';
 import { registerAdminUsers } from './admin/users';
 import { registerAdminAuth, type AdminAuthOptions } from './admin/auth';
 import { registerActionRoutes } from './web/actions';
@@ -78,6 +79,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
     registerAdminUsers(app, { core });
     registerAdminQuestions(app, { core });
+    registerAdminTestUsers(app, { core });
     registerStateRoutes(app, { core });
     registerActionRoutes(app, { core });
     registerHistoryRoutes(app, { core });

@@ -99,3 +99,14 @@ export type AdminQuestionsResponse = z.infer<typeof adminQuestionsResponseSchema
 /** `POST /admin/api/questions/:id/staff-answer` body. */
 export const staffAnswerRequestSchema = z.object({ text: z.string().max(20_000) });
 export type StaffAnswerRequest = z.infer<typeof staffAnswerRequestSchema>;
+
+/** `POST /admin/api/test-users` body. */
+export const createTestUserRequestSchema = z.object({
+  locale: z.enum(['ru', 'en']).default('ru'),
+});
+
+/** `PUT /admin/api/test-users/:id/receiving` body: the availability flag of a test user. */
+export const testUserReceivingRequestSchema = z.object({ receivingEnabled: z.boolean() });
+
+/** `POST /admin/api/test-users/:id/messages` body. */
+export const testUserMessageRequestSchema = z.object({ text: z.string().max(20_000) });
