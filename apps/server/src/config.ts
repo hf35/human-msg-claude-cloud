@@ -18,6 +18,14 @@ const envSchema = z.object({
   WORKER_INTERVAL: z.coerce.number().positive().default(5),
   // ... and of the outbox dispatcher; NOTIFY wakes it earlier, the timer is the safety net
   DISPATCH_INTERVAL: z.coerce.number().positive().default(5),
+  // OAuth client id of the web app; ID tokens issued for any other client are refused.
+  // Without it Google sign-in is off (local development can use DEV_LOGIN instead).
+  GOOGLE_CLIENT_ID: z.string().trim().min(1).optional(),
+  // Sign-in without Google for local development; refused outside NODE_ENV=development
+  DEV_LOGIN: z
+    .enum(['true', 'false', '1', '0'])
+    .default('false')
+    .transform((value) => value === 'true' || value === '1'),
   DATABASE_URL: z
     .string({ error: 'is not set (see .env.example)' })
     .trim()
@@ -30,6 +38,9 @@ export interface Config {
   port: number;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
   databaseUrl: string;
+  googleClientId?: string;
+  /** Sign-in without Google; only ever true when `nodeEnv` is `development`. */
+  devLogin: boolean;
   serverId: string;
   workerIntervalMs: number;
   dispatchIntervalMs: number;
@@ -45,12 +56,18 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     throw new Error(`Invalid configuration: ${problems}`);
   }
   const values = parsed.data;
+  if (values.DEV_LOGIN && values.NODE_ENV !== 'development') {
+    // A forgotten flag must not open a passwordless door; failing loudly beats ignoring it
+    throw new Error('Invalid configuration: DEV_LOGIN: allowed only when NODE_ENV=development');
+  }
   return {
     nodeEnv: values.NODE_ENV,
     host: values.HOST,
     port: values.PORT,
     logLevel: values.LOG_LEVEL,
     databaseUrl: values.DATABASE_URL,
+    ...(values.GOOGLE_CLIENT_ID && { googleClientId: values.GOOGLE_CLIENT_ID }),
+    devLogin: values.DEV_LOGIN,
     serverId: values.SERVER_ID,
     workerIntervalMs: Math.round(values.WORKER_INTERVAL * 1000),
     dispatchIntervalMs: Math.round(values.DISPATCH_INTERVAL * 1000),

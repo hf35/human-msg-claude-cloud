@@ -327,6 +327,7 @@ outbox. Если транзакция откатилась, события то�
 |---|---|---|
 | `POST` | `/auth/google` | Принимает ID-токен Google, создаёт сессию (httpOnly cookie) |
 | `POST` | `/auth/logout` | Завершает сессию |
+| `POST` | `/auth/dev` | Только `NODE_ENV=development` и `DEV_LOGIN=true`: вход по имени без Google |
 | `GET` | `/me` | Профиль: псевдоним, состояние (ждёт ответа, занят, пауза), лимит |
 | `GET` | `/state` | Текущий назначенный вопрос и свой вопрос в ожидании |
 | `POST` | `/messages` | Входящий текст → `handleIncomingText` |
@@ -359,8 +360,9 @@ outbox. Если транзакция откатилась, события то�
 
 - **Веб:** фронтенд получает ID-токен через Google Identity Services, сервер
   проверяет подпись и `aud`, находит или создаёт пользователя по `google_sub` и
-  выдаёт сессию в httpOnly-cookie (`SameSite=Lax`, `Secure`). WebSocket
-  авторизуется той же cookie.
+  выдаёт сессию в httpOnly-cookie (`SameSite=Lax`, `Secure` в production).
+  Cookie содержит случайный токен, в БД хранится только его хеш, поэтому
+  подпись не нужна. WebSocket авторизуется той же cookie.
 - **Бэкофис:** логин и хеш пароля задаются переменными окружения. Отдельная
   cookie с отдельным путём, ограничение частоты попыток входа.
 - **Telegram:** пользователь определяется по `telegram_id` из апдейта. В режиме
@@ -396,8 +398,8 @@ outbox. Если транзакция откатилась, события то�
 |---|---|
 | `DATABASE_URL` | Подключение к PostgreSQL |
 | `PUBLIC_URL` | Внешний адрес сервиса |
-| `SESSION_SECRET` | Подпись cookie |
-| `GOOGLE_CLIENT_ID` | Проверка ID-токенов Google |
+| `GOOGLE_CLIENT_ID` | Проверка ID-токенов Google; без него вход через Google выключен (`POST /api/auth/google` отвечает 503) |
+| `DEV_LOGIN` | `true` добавляет `POST /api/auth/dev` — вход без Google для разработки. Работает только при `NODE_ENV=development`; в другом режиме сервер не стартует |
 | `TELEGRAM_BOT_TOKEN` | Токен бота |
 | `TELEGRAM_MODE` | `polling` или `webhook` |
 | `TELEGRAM_WEBHOOK_SECRET` | Проверка запросов от Telegram |

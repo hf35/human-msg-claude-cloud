@@ -11,6 +11,7 @@ import { createDb, createPool, type TimeSource } from '@human-msg/db';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app';
 import type { Config } from './config';
+import { createGoogleVerifier, type GoogleTokenVerifier } from './web/google';
 import { startDispatcher, startOutboxListener, type ChannelAdapters } from './delivery';
 
 export interface StartServerOptions {
@@ -18,6 +19,8 @@ export interface StartServerOptions {
   adapters?: ChannelAdapters;
   /** Where "now" comes from; tests move it. Defaults to the database clock. */
   time?: TimeSource;
+  /** Replaces the Google ID token check; tests supply one that needs no network. */
+  googleVerifier?: GoogleTokenVerifier;
   /** Reconnection pause of the NOTIFY listener, in milliseconds. */
   listenerReconnectMs?: number;
 }
@@ -45,6 +48,9 @@ export async function startServer(
   options: StartServerOptions = {},
 ): Promise<RunningServer> {
   const { adapters = {}, time, listenerReconnectMs } = options;
+  const googleVerifier =
+    options.googleVerifier ??
+    (config.googleClientId ? createGoogleVerifier(config.googleClientId) : undefined);
 
   const pool = createPool(config.databaseUrl);
   const db = createDb(pool);
@@ -54,6 +60,7 @@ export async function startServer(
   const app = await buildApp({
     config,
     core,
+    googleVerifier,
     healthCheck: async () => void (await pool.query('SELECT 1')),
   });
   // A broken idle connection must not crash the process; the pool replaces it

@@ -11,6 +11,7 @@ describe('loadConfig', () => {
       port: 3000,
       logLevel: 'info',
       databaseUrl: DATABASE_URL,
+      devLogin: false,
       serverId: 'server-1',
       workerIntervalMs: 5000,
       dispatchIntervalMs: 5000,
@@ -65,5 +66,23 @@ describe('loadConfig', () => {
       /PORT.*LOG_LEVEL/,
     );
     expect(() => loadConfig({ DATABASE_URL, PORT: '70000' })).toThrow(/PORT/);
+  });
+
+  it('reads the Google client id', () => {
+    expect(
+      loadConfig({ DATABASE_URL, GOOGLE_CLIENT_ID: ' abc.apps.googleusercontent.com ' }),
+    ).toMatchObject({
+      googleClientId: 'abc.apps.googleusercontent.com',
+    });
+  });
+
+  it('enables the dev login only in development', () => {
+    expect(loadConfig({ DATABASE_URL, NODE_ENV: 'development', DEV_LOGIN: 'true' }).devLogin).toBe(
+      true,
+    );
+    expect(loadConfig({ DATABASE_URL, NODE_ENV: 'production' }).devLogin).toBe(false);
+    for (const NODE_ENV of ['production', 'test']) {
+      expect(() => loadConfig({ DATABASE_URL, NODE_ENV, DEV_LOGIN: 'true' })).toThrow(/DEV_LOGIN/);
+    }
   });
 });
