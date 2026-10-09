@@ -67,6 +67,8 @@ export function fakeBackend() {
     } as MeResponse,
     state: { assignment: null, pendingQuestion: null } as StateResponse,
     history: { items: [], nextCursor: null } as HistoryResponse,
+    /** When set, `/api/history` serves these pages; the cursor is the index of the next page. */
+    historyPages: [] as HistoryResponse[],
     /** Overrides: `"METHOD /path"` → response, for refusals and special answers. */
     overrides: new Map<string, () => Response>(),
   };
@@ -91,7 +93,14 @@ export function fakeBackend() {
     if (!state.signedIn) return json({ error: 'unauthorized' }, 401);
     if (method === 'GET' && url === '/api/me') return json(state.me);
     if (method === 'GET' && url === '/api/state') return json(state.state);
-    if (method === 'GET' && url.startsWith('/api/history')) return json(state.history);
+    if (method === 'GET' && url.startsWith('/api/history')) {
+      const cursor = new URL(url, 'http://x').searchParams.get('cursor');
+      return json(
+        state.historyPages.length > 0
+          ? state.historyPages[cursor ? Number(cursor) : 0]
+          : state.history,
+      );
+    }
     if (method === 'PATCH' && url === '/api/me') {
       state.me = { ...state.me, locale: body.locale };
       return json(state.me);

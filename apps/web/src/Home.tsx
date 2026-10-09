@@ -4,6 +4,7 @@ import type { MeResponse } from '@human-msg/shared';
 import { api } from './api';
 import { AnswerCard } from './AnswerCard';
 import { AskPanel } from './AskPanel';
+import { History } from './History';
 import { IncomingCard } from './IncomingCard';
 import { useI18n } from './i18n';
 import { useNewAnswers } from './useNewAnswers';
@@ -66,6 +67,8 @@ export function Home({ me }: { me: MeResponse }) {
           {t.web.state.waiting} {pendingQuestion.text}
         </p>
       )}
+
+      <History />
 
       <button type="button" onClick={() => void signOut()}>
         {t.web.header.signOut}
