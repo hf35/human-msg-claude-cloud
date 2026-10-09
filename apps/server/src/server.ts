@@ -51,8 +51,9 @@ export async function startServer(
   const settings = createSettingsStore({ db });
   const core = createCore({ db, settings, ...(time && { time }) });
 
-  const app = buildApp({
+  const app = await buildApp({
     config,
+    core,
     healthCheck: async () => void (await pool.query('SELECT 1')),
   });
   // A broken idle connection must not crash the process; the pool replaces it

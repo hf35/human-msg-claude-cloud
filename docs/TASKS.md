@@ -205,7 +205,7 @@
 
 ## Этап 7. API для веба
 
-- [ ] **7.1 Сессии.** Таблица `sessions`, выдача и проверка httpOnly-cookie,
+- [x] **7.1 Сессии.** Таблица `sessions`, выдача и проверка httpOnly-cookie,
   middleware «текущий пользователь». **Проверка:** тесты через
   `fastify.inject`.
 - [ ] **7.2 Вход через Google.** `POST /api/auth/google`: проверка ID-токена,
