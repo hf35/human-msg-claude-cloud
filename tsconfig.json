@@ -1,9 +1,20 @@
 {
   "include": [],
   "references": [
-    { "path": "packages/shared" },
-    { "path": "packages/db" },
-    { "path": "packages/core" },
-    { "path": "apps/server" }
+    {
+      "path": "packages/shared"
+    },
+    {
+      "path": "packages/db"
+    },
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "apps/server"
+    },
+    {
+      "path": "apps/web"
+    }
   ]
 }
