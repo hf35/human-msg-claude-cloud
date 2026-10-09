@@ -410,8 +410,9 @@ outbox. Если транзакция откатилась, события то�
 | `PUBLIC_URL` | Внешний адрес сервиса |
 | `GOOGLE_CLIENT_ID` | Проверка ID-токенов Google; без него вход через Google выключен (`POST /api/auth/google` отвечает 503) |
 | `DEV_LOGIN` | `true` добавляет `POST /api/auth/dev` — вход без Google для разработки. Работает только при `NODE_ENV=development`; в другом режиме сервер не стартует |
-| `TELEGRAM_BOT_TOKEN` | Токен бота |
+| `TELEGRAM_BOT_TOKEN` | Токен бота; без него сервер работает без бота. Токен проверяется при старте (`getMe`), неверный токен останавливает запуск |
 | `TELEGRAM_MODE` | `polling` или `webhook` |
+| `TELEGRAM_API_ROOT` | Адрес Bot API (по умолчанию официальный); нужен для локального Bot API-сервера и тестов |
 | `TELEGRAM_WEBHOOK_SECRET` | Проверка запросов от Telegram |
 | `BACKOFFICE_LOGIN`, `BACKOFFICE_PASSWORD_HASH` | Вход в бэкофис |
 | `WORKER_INTERVAL` | Период сканера, секунды (по умолчанию 5) |

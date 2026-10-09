@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from './config';
 
@@ -85,5 +86,54 @@ describe('loadConfig', () => {
     for (const NODE_ENV of ['production', 'test']) {
       expect(() => loadConfig({ DATABASE_URL, NODE_ENV, DEV_LOGIN: 'true' })).toThrow(/DEV_LOGIN/);
     }
+  });
+
+  it('has no bot without a token', () => {
+    expect(loadConfig({ DATABASE_URL }).telegram).toBeUndefined();
+  });
+
+  it('configures the bot', () => {
+    expect(loadConfig({ DATABASE_URL, TELEGRAM_BOT_TOKEN: ' 1:abc ' }).telegram).toEqual({
+      token: '1:abc',
+      mode: 'polling',
+    });
+    expect(
+      loadConfig({
+        DATABASE_URL,
+        TELEGRAM_BOT_TOKEN: '1:abc',
+        TELEGRAM_MODE: 'webhook',
+        TELEGRAM_API_ROOT: 'http://localhost:8081',
+      }).telegram,
+    ).toEqual({ token: '1:abc', mode: 'webhook', apiRoot: 'http://localhost:8081' });
+  });
+
+  it('refuses an unknown Telegram mode', () => {
+    expect(() => loadConfig({ DATABASE_URL, TELEGRAM_MODE: 'carrier-pigeon' })).toThrow(
+      /TELEGRAM_MODE/,
+    );
+  });
+
+  it('treats an empty value as not set', () => {
+    const config = loadConfig({
+      DATABASE_URL,
+      GOOGLE_CLIENT_ID: '',
+      TELEGRAM_BOT_TOKEN: '  ',
+      TELEGRAM_API_ROOT: '',
+    });
+    expect(config.googleClientId).toBeUndefined();
+    expect(config.telegram).toBeUndefined();
+  });
+
+  it('accepts .env.example as it is: the documented first run is `cp .env.example .env`', () => {
+    const env = Object.fromEntries(
+      readFileSync(new URL('../../../.env.example', import.meta.url), 'utf8')
+        .split('\n')
+        .filter((line) => line.trim() && !line.trim().startsWith('#'))
+        .map((line) => {
+          const at = line.indexOf('=');
+          return [line.slice(0, at), line.slice(at + 1)];
+        }),
+    );
+    expect(() => loadConfig(env)).not.toThrow();
   });
 });
