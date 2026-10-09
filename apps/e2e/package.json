@@ -1,0 +1,19 @@
+{
+  "name": "@human-msg/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@human-msg/db": "workspace:*",
+    "@human-msg/server": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1",
+    "tsx": "^4.23.15"
+  }
+}
