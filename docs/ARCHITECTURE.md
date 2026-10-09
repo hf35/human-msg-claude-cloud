@@ -86,8 +86,9 @@ apps/
       api/backoffice/# REST для бэкофиса
       bot/           # grammY: команды, обработчики, клавиатуры
       worker/        # сканер сроков и очереди
-      delivery/      # диспетчер outbox, адаптеры ws и telegram
-      main.ts
+      delivery/      # диспетчер outbox, слушатель NOTIFY, адаптеры ws и telegram
+      server.ts      # startServer: собирает и запускает все модули
+      main.ts        # точка входа процесса: конфиг, сигналы, остановка
   web/               # SPA пользователей (React + Vite)
   backoffice/        # SPA бэкофиса (React + Vite + Refine)
 packages/
@@ -401,7 +402,10 @@ outbox. Если транзакция откатилась, события то�
 | `TELEGRAM_MODE` | `polling` или `webhook` |
 | `TELEGRAM_WEBHOOK_SECRET` | Проверка запросов от Telegram |
 | `BACKOFFICE_LOGIN`, `BACKOFFICE_PASSWORD_HASH` | Вход в бэкофис |
-| `WORKER_INTERVAL` | Период сканера |
+| `WORKER_INTERVAL` | Период сканера, секунды (по умолчанию 5) |
+| `DISPATCH_INTERVAL` | Период страховочного прохода диспетчера, секунды (по умолчанию 5); `NOTIFY` будит его раньше |
+| `SERVER_ID` | Имя сервера в `web_connections` (по умолчанию `server-1`); при старте сервер удаляет свои строки. Постоянное между перезапусками, разное у одновременно работающих серверов |
+| `HOST`, `PORT`, `LOG_LEVEL`, `NODE_ENV` | Адрес и порт HTTP (`127.0.0.1:3000`), уровень логов pino, режим |
 
 Продуктовые настройки (сроки, паузы, лимиты, тихие часы) хранятся в таблице
 `settings` и описаны в `CLAUDE.md`. Ядро читает их с коротким кешем (несколько
