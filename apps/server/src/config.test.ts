@@ -11,6 +11,9 @@ describe('loadConfig', () => {
       port: 3000,
       logLevel: 'info',
       databaseUrl: DATABASE_URL,
+      serverId: 'server-1',
+      workerIntervalMs: 5000,
+      dispatchIntervalMs: 5000,
     });
   });
 
@@ -28,6 +31,28 @@ describe('loadConfig', () => {
       port: 8080,
       logLevel: 'warn',
     });
+  });
+
+  it('reads the server id and the intervals in seconds', () => {
+    const config = loadConfig({
+      DATABASE_URL,
+      SERVER_ID: 'eu-1',
+      WORKER_INTERVAL: '2.5',
+      DISPATCH_INTERVAL: '10',
+    });
+    expect(config).toMatchObject({
+      serverId: 'eu-1',
+      workerIntervalMs: 2500,
+      dispatchIntervalMs: 10_000,
+    });
+  });
+
+  it('rejects an empty server id and non-positive intervals', () => {
+    expect(() => loadConfig({ DATABASE_URL, SERVER_ID: ' ' })).toThrow(/SERVER_ID/);
+    expect(() => loadConfig({ DATABASE_URL, WORKER_INTERVAL: '0' })).toThrow(/WORKER_INTERVAL/);
+    expect(() => loadConfig({ DATABASE_URL, DISPATCH_INTERVAL: '-1' })).toThrow(
+      /DISPATCH_INTERVAL/,
+    );
   });
 
   it('fails when the database url is missing or blank', () => {
