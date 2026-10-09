@@ -7,6 +7,7 @@ import { registerAuthRoutes } from './web/auth';
 import type { GoogleTokenVerifier } from './web/google';
 import { registerSessions } from './web/session';
 import { registerStateRoutes } from './web/state';
+import { registerWebSocket } from './web/ws';
 
 export interface AppOptions {
   config: Pick<Config, 'logLevel'> & Partial<Pick<Config, 'nodeEnv' | 'devLogin'>>;
@@ -14,6 +15,10 @@ export interface AppOptions {
   core?: Core;
   /** Checks Google ID tokens; without it `POST /api/auth/google` answers 503. */
   googleVerifier?: GoogleTokenVerifier;
+  /** Names this server's WebSocket connections in the database. */
+  serverId?: string;
+  /** Seconds between WebSocket pings, in milliseconds. */
+  wsPingIntervalMs?: number;
   /**
    * Checks that what the process depends on (the database) is reachable; rejects when it is not.
    * Without it `/health` only proves that the process is up.
@@ -26,7 +31,14 @@ export interface AppOptions {
  * Modules (web API, backoffice API, WebSocket) are registered here as they appear.
  */
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
-  const { config, core, googleVerifier, healthCheck } = options;
+  const {
+    config,
+    core,
+    googleVerifier,
+    healthCheck,
+    serverId = 'server-1',
+    wsPingIntervalMs = 30_000,
+  } = options;
   const app = Fastify({ logger: { level: config.logLevel } });
 
   app.get('/health', async (request, reply) => {
@@ -53,6 +65,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     registerStateRoutes(app, { core });
     registerActionRoutes(app, { core });
     registerHistoryRoutes(app, { core });
+    await registerWebSocket(app, { core, serverId, pingIntervalMs: wsPingIntervalMs });
   }
 
   return app;

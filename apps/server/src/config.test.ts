@@ -15,6 +15,7 @@ describe('loadConfig', () => {
       serverId: 'server-1',
       workerIntervalMs: 5000,
       dispatchIntervalMs: 5000,
+      wsPingIntervalMs: 30000,
     });
   });
 

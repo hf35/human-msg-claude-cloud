@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.3",
+    "@fastify/websocket": "^11.3.3",
     "@human-msg/core": "workspace:*",
     "@human-msg/db": "workspace:*",
     "@human-msg/shared": "workspace:*",
@@ -22,6 +23,8 @@
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
-    "tsx": "^4.23.15"
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "ws": "^8.22.0"
   }
 }
