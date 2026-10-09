@@ -65,6 +65,24 @@ export class FakeTelegram {
     });
   }
 
+  /** A press of an inline button under a bot message. */
+  callback(from: { id: number }, data: string, chatId = from.id): number {
+    return this.push({
+      callback_query: {
+        id: String(this.updateId),
+        from: { is_bot: false, first_name: 'Test', ...from },
+        chat_instance: 'test',
+        data,
+        message: {
+          message_id: this.messageId++,
+          date: Math.floor(Date.now() / 1000),
+          chat: { id: chatId, type: 'private' },
+          text: 'bot message',
+        },
+      },
+    });
+  }
+
   /** The calls of one Bot API method, in order. */
   called(method: string): Call[] {
     return this.calls.filter((call) => call.method === method);

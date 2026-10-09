@@ -41,6 +41,10 @@ export const en: Texts = {
     start: (alias: string) =>
       `Hi! Here you can ask a real person a question or answer someone else's. Your name here is "${alias}".\n\nJust write your question and it will go to a random person.`,
     help: 'Write a question and it goes to a random person; you will get an answer. If you receive someone else\'s question, answer it with a regular message or press "Skip".\n\n/stop - stop receiving other people\'s questions\n/resume - start receiving them again',
+    rules: (maxLength: number, dailyLimit: number) =>
+      `How it works:\n• Your question goes to a random person. You will not know who they are, and they will not know who you are.\n• The answer comes back here together with your question, sometimes hours later.\n• While you wait for an answer you cannot ask another question. You can ask up to ${dailyLimit} questions a day.\n• It is a one-off exchange: there is no need to reply to an answer.\n• Text only, up to ${maxLength} characters.`,
+    languagePrompt: 'Choose a language:',
+    languageChanged: 'Language switched: English.',
     stopped: "Okay, you will not get other people's questions anymore. Send /resume to come back.",
     resumed: "You're back - other people's questions will arrive again.",
   },
