@@ -78,9 +78,21 @@ export const ru = {
       remaining: (count: number) => `Вопросов на сегодня осталось: ${count}`,
       assigned: 'Вопрос уже у собеседника — ждём ответа.',
     },
+    incoming: {
+      from: (alias: string) => `Вопрос от «${alias}»`,
+      timeLeft: (time: string) => `Осталось времени: ${time}`,
+      timeUp: 'Время вышло',
+      placeholder: 'Напишите ответ…',
+      send: 'Ответить',
+      reportConfirm: 'Вы больше не будете получать вопросы от этого человека. Пожаловаться?',
+      reportYes: 'Да, пожаловаться',
+      cancel: 'Отмена',
+    },
+    notice: {
+      dismiss: 'Закрыть',
+    },
     state: {
       waiting: 'Ваш вопрос ждёт ответа:',
-      incoming: 'Вам пришёл вопрос:',
     },
   },
 

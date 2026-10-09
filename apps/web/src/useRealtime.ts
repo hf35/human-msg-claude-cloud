@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { WsMessage } from '@human-msg/shared';
 import { startRealtime, realtimeUrl, type RealtimeStatus } from './realtime';
 
 /**
@@ -7,9 +8,12 @@ import { startRealtime, realtimeUrl, type RealtimeStatus } from './realtime';
  * fresh: every event, and every reconnection, makes the screen re-read what it shows.
  * Returns the connection status.
  */
-export function useRealtime(): RealtimeStatus {
+export function useRealtime(onEvent?: (event: WsMessage['event']) => void): RealtimeStatus {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<RealtimeStatus>('connecting');
+  // The latest handler without reconnecting the socket whenever the component re-renders
+  const handler = useRef(onEvent);
+  handler.current = onEvent;
 
   useEffect(() => {
     const refresh = (...keys: string[]) =>
@@ -25,6 +29,7 @@ export function useRealtime(): RealtimeStatus {
         const answersChanged =
           event.type === 'answer.received' || event.type === 'question.expired';
         void refresh('me', 'state', ...(answersChanged ? ['history'] : []));
+        handler.current?.(event);
       },
     });
     return () => connection.close();
