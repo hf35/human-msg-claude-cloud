@@ -2,7 +2,7 @@ import { getHistory, type Core, type HistoryItem } from '@human-msg/core';
 import { historyQuerySchema, type HistoryResponse } from '@human-msg/shared';
 import type { FastifyInstance } from 'fastify';
 
-const toDto = (item: HistoryItem): HistoryResponse['items'][number] =>
+export const toHistoryDto = (item: HistoryItem): HistoryResponse['items'][number] =>
   item.kind === 'question'
     ? {
         ...item,
@@ -22,7 +22,7 @@ export function registerHistoryRoutes(app: FastifyInstance, { core }: { core: Co
     );
     if (!result.ok) return reply.code(400).send({ error: result.reason });
     const response: HistoryResponse = {
-      items: result.value.items.map(toDto),
+      items: result.value.items.map(toHistoryDto),
       nextCursor: result.value.nextCursor,
     };
     return response;
