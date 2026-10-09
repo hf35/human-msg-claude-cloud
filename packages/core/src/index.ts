@@ -6,6 +6,7 @@ export * from './users';
 export * from './availability';
 export * from './queue';
 export * from './outbox';
+export * from './outbox-dispatch';
 export * from './matching';
 export * from './questions';
 export * from './incoming';
