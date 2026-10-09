@@ -1,4 +1,10 @@
-import { createCore, createSession, createSettingsStore, type Core } from '@human-msg/core';
+import {
+  createCore,
+  createSession,
+  createSettingsStore,
+  type Core,
+  type SettingsStore,
+} from '@human-msg/core';
 import { users, type ManualTime, type User } from '@human-msg/db';
 import type { TestDatabase } from '@human-msg/db/testing';
 import type { FastifyInstance } from 'fastify';
@@ -9,6 +15,7 @@ import { SESSION_COOKIE } from './session';
 export interface WebHarness {
   app: FastifyInstance;
   core: Core;
+  settings: SettingsStore;
   /** Creates a web user and a session for them; returns the user and the cookie to send. */
   signIn(alias?: string): Promise<{ user: User; cookies: Record<string, string> }>;
 }
@@ -23,6 +30,7 @@ export async function createWebHarness(
   const app = await buildApp({
     config: { logLevel: 'silent', nodeEnv: 'test', devLogin: false },
     core,
+    settings,
     ...appOptions,
   });
   // Plugins finish loading here; the WebSocket upgrade handler is attached on ready
@@ -32,6 +40,7 @@ export async function createWebHarness(
   return {
     app,
     core,
+    settings,
     async signIn(alias) {
       counter++;
       const [user] = await testDb.db

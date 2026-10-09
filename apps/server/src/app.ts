@@ -1,7 +1,8 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { Core } from '@human-msg/core';
+import type { Core, SettingsStore } from '@human-msg/core';
 import type { Config } from './config';
 import { registerAdminQuestions } from './admin/questions';
+import { registerAdminSettings } from './admin/settings';
 import { registerAdminTestUsers } from './admin/test-users';
 import { registerAdminUsers } from './admin/users';
 import { registerAdminAuth, type AdminAuthOptions } from './admin/auth';
@@ -15,6 +16,8 @@ import { registerWebSocket } from './web/ws';
 
 export interface AppOptions {
   config: Pick<Config, 'logLevel'> & Partial<Pick<Config, 'nodeEnv' | 'devLogin'>>;
+  /** The settings store behind the back office settings; without it those routes are absent. */
+  settings?: SettingsStore;
   /** Back office sign-in; without it the back office API answers 503. */
   backoffice?: Config['backoffice'];
   /** Limits and clock of the back office sign-in; tests tighten them. */
@@ -42,6 +45,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const {
     config,
     core,
+    settings,
     googleVerifier,
     backoffice,
     backofficeAuth,
@@ -80,6 +84,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     registerAdminUsers(app, { core });
     registerAdminQuestions(app, { core });
     registerAdminTestUsers(app, { core });
+    if (settings) registerAdminSettings(app, { settings });
     registerStateRoutes(app, { core });
     registerActionRoutes(app, { core });
     registerHistoryRoutes(app, { core });
