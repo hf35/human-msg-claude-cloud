@@ -66,6 +66,7 @@ export async function startServer(
   const app = await buildApp({
     config,
     core,
+    settings,
     googleVerifier,
     backoffice: config.backoffice,
     serverId: config.serverId,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Settings } from './settings';
 
 const isoTime = z.iso.datetime();
 const flag = z.enum(['true', 'false']).transform((value) => value === 'true');
@@ -110,3 +111,9 @@ export const testUserReceivingRequestSchema = z.object({ receivingEnabled: z.boo
 
 /** `POST /admin/api/test-users/:id/messages` body. */
 export const testUserMessageRequestSchema = z.object({ text: z.string().max(20_000) });
+
+/** `GET`/`PUT /admin/api/settings`: the settings in force and the defaults to compare with. */
+export type SettingsResponse = {
+  settings: Settings;
+  defaults: Settings;
+};
