@@ -45,3 +45,53 @@ export const adminUsersResponseSchema = z.object({
   total: z.number().int(),
 });
 export type AdminUsersResponse = z.infer<typeof adminUsersResponseSchema>;
+
+/** `GET /admin/api/questions` query. */
+export const adminQuestionsQuerySchema = z.object({
+  status: z.enum(['queued', 'assigned', 'answered', 'expired']).optional(),
+  /** Only the questions of this author. */
+  authorId: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type AdminQuestionsQuery = z.infer<typeof adminQuestionsQuerySchema>;
+
+export const adminAssignmentSchema = z.object({
+  receiverId: z.string(),
+  receiverAlias: z.string(),
+  assignedAt: isoTime,
+  deadlineAt: isoTime,
+  endedAt: isoTime.nullable(),
+  /** `null` while the assignment is active. */
+  outcome: z.enum(['answered', 'timed_out', 'skipped', 'reported', 'undeliverable']).nullable(),
+});
+
+/** A question with who asked, who got it and what came back. */
+export const adminQuestionSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  status: z.enum(['queued', 'assigned', 'answered', 'expired']),
+  authorId: z.string(),
+  authorAlias: z.string(),
+  createdAt: isoTime,
+  expiresAt: isoTime,
+  answeredAt: isoTime.nullable(),
+  answer: z
+    .object({
+      text: z.string(),
+      responderId: z.string(),
+      responderAlias: z.string(),
+      createdAt: isoTime,
+    })
+    .nullable(),
+  /** Oldest first. */
+  assignments: z.array(adminAssignmentSchema),
+});
+export type AdminQuestionDto = z.infer<typeof adminQuestionSchema>;
+
+/** `GET /admin/api/questions`: newest first. */
+export const adminQuestionsResponseSchema = z.object({
+  items: z.array(adminQuestionSchema),
+  total: z.number().int(),
+});
+export type AdminQuestionsResponse = z.infer<typeof adminQuestionsResponseSchema>;

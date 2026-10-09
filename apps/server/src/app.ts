@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Core } from '@human-msg/core';
 import type { Config } from './config';
+import { registerAdminQuestions } from './admin/questions';
 import { registerAdminUsers } from './admin/users';
 import { registerAdminAuth, type AdminAuthOptions } from './admin/auth';
 import { registerActionRoutes } from './web/actions';
@@ -76,6 +77,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       secureCookies: config.nodeEnv === 'production',
     });
     registerAdminUsers(app, { core });
+    registerAdminQuestions(app, { core });
     registerStateRoutes(app, { core });
     registerActionRoutes(app, { core });
     registerHistoryRoutes(app, { core });
