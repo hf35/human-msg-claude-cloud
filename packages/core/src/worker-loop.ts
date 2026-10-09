@@ -1,4 +1,5 @@
 import type { Core } from './core';
+import { purgeExpiredSessions } from './sessions';
 import {
   processDeadlines,
   processExpiredQuestions,
@@ -63,6 +64,7 @@ export function startWorker(options: WorkerOptions): Worker {
       if (Date.now() - lastPurge >= purgeIntervalMs) {
         lastPurge = Date.now();
         await purgeOutbox(core);
+        await purgeExpiredSessions(core);
       }
     } catch (error) {
       onError?.(error);
