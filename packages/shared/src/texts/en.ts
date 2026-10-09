@@ -65,6 +65,14 @@ export const en: Texts = {
       network: 'Cannot reach the server. Check your connection and try again.',
       loading: 'Loading…',
     },
+    connection: {
+      reconnecting: 'No connection to the server, reconnecting…',
+    },
+    state: {
+      waiting: 'Your question is waiting for an answer:',
+      incoming: 'You have a question:',
+      idle: 'Nothing is happening yet.',
+    },
   },
 
   errors: {
