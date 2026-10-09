@@ -1,4 +1,3 @@
-import { getTexts } from '@human-msg/shared';
 import { createCore } from '@human-msg/core';
 import { createTestDatabase, type TestDatabase } from '@human-msg/db/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -55,10 +54,8 @@ describe('the bot (long polling)', () => {
     const fake = await startBot();
     fake.text({ id: 42 }, '/start');
     await eventually(() => fake.called('sendMessage').length === 1, 'the answer to /start');
-    expect(fake.called('sendMessage')[0]!.params).toMatchObject({
-      chat_id: 42,
-      text: getTexts().bot.help,
-    });
+    expect(fake.called('sendMessage')[0]!.params).toMatchObject({ chat_id: 42 });
+    expect(String(fake.called('sendMessage')[0]!.params.text)).toContain('Привет!');
   });
 
   it('keeps answering several users one after another', async () => {

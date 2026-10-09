@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LOCALE, LOCALES, getTexts, isLocale } from './index';
+import { DEFAULT_LOCALE, LOCALES, getTexts, isLocale, parseLocale } from './index';
 
 // Flattens the catalogue into "path -> value", calling text functions with sample arguments
 function flatten(node: unknown, path = ''): Record<string, string> {
@@ -55,6 +55,8 @@ describe('texts', () => {
       expect(t.notifications.answerReminder(5)).toContain('5');
       expect(t.bot.start('Green Rabbit')).toContain('Green Rabbit');
       expect(t.web.header.signedInAs('Green Rabbit')).toContain('Green Rabbit');
+      expect(t.bot.rules(2000, 10)).toContain('2000');
+      expect(t.bot.rules(2000, 10)).toContain('10');
       const both = t.notifications.questionAndAnswer('QQQ', 'AAA');
       expect(both).toContain('QQQ');
       expect(both).toContain('AAA');
@@ -72,6 +74,15 @@ describe('texts', () => {
       expect(getTexts(null)).toBe(getTexts(DEFAULT_LOCALE));
       expect(getTexts('de')).toBe(getTexts(DEFAULT_LOCALE));
     });
+  });
+
+  it('finds the language in a language tag', () => {
+    expect(parseLocale('ru')).toBe('ru');
+    expect(parseLocale('en-US')).toBe('en');
+    expect(parseLocale('EN_gb')).toBe('en');
+    expect(parseLocale('de')).toBeNull();
+    expect(parseLocale('')).toBeNull();
+    expect(parseLocale(undefined)).toBeNull();
   });
 
   it('recognises locales', () => {

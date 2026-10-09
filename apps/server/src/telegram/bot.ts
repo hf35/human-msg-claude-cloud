@@ -1,7 +1,7 @@
 import type { Core } from '@human-msg/core';
-import { getTexts } from '@human-msg/shared';
 import { apiThrottler } from '@grammyjs/transformer-throttler';
 import { Bot, type BotConfig, type Context } from 'grammy';
+import { registerHandlers } from './handlers';
 
 export interface BotOptions {
   token: string;
@@ -25,8 +25,7 @@ export function createBot(options: BotOptions): Bot {
   });
   bot.api.config.use(apiThrottler());
 
-  // The default texts until the user's language is known (see the registration, task 9.2)
-  bot.command('start', (ctx) => ctx.reply(getTexts().bot.help));
+  registerHandlers(bot, { core: options.core });
 
   return bot;
 }
