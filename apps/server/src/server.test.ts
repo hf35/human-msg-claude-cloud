@@ -87,7 +87,8 @@ describe('startServer', () => {
     await server.stop();
 
     expect(server.app.server.listening).toBe(false);
-    expect(await listenerConnections()).toBe(0);
+    // The backend of a closed client leaves pg_stat_activity a moment after `end()` resolves
+    await eventually(async () => (await listenerConnections()) === 0, 'listener disconnected');
     await expect(fetch(`${server.address}/health`)).rejects.toThrow();
     // A second call is harmless
     await server.stop();

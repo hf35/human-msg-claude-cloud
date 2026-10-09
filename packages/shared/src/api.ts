@@ -76,3 +76,49 @@ export const meResponseSchema = z.object({
   }),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
+
+/** `POST /api/messages`: any text of the user; the server decides whether it is an answer or a question. */
+export const sendMessageRequestSchema = z.object({
+  // Anything but a string is refused by the core as "not text", like a photo in Telegram
+  text: z.unknown(),
+});
+
+/** What `POST /api/messages` did with the text. */
+export const sendMessageResponseSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('answered'), questionId: z.string() }),
+  z.object({
+    kind: z.literal('asked'),
+    questionId: z.string(),
+    /** `assigned`: already with a receiver; `queued`: waits for a free one. */
+    status: z.enum(['assigned', 'queued']),
+  }),
+]);
+export type SendMessageResponse = z.infer<typeof sendMessageResponseSchema>;
+
+/**
+ * `POST /api/reports`: a complaint either about the question assigned to the user now, or about
+ * the answer to one of their questions.
+ */
+export const reportRequestSchema = z.discriminatedUnion('target', [
+  z.object({ target: z.literal('question') }),
+  z.object({ target: z.literal('answer'), questionId: z.uuid() }),
+]);
+export type ReportRequest = z.infer<typeof reportRequestSchema>;
+
+/** Machine-readable reasons of a refused action, the `error` field of a 4xx response. */
+export const ACTION_ERRORS = [
+  'invalid_request',
+  'unauthorized',
+  // Messages (the same reasons the Telegram bot answers with)
+  'empty',
+  'tooShort',
+  'tooLong',
+  'notText',
+  'awaitingAnswer',
+  'dailyLimit',
+  // Skip and reports
+  'no_active_assignment',
+  'not_found',
+  'not_answered',
+] as const;
+export type ActionError = (typeof ACTION_ERRORS)[number];
