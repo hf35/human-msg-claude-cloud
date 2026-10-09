@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { MeResponse } from '@human-msg/shared';
+import type { MeResponse, StateResponse, WsMessage } from '@human-msg/shared';
 import { render, type RenderResult } from '@testing-library/react';
 import { vi } from 'vitest';
 import { App } from './App';
@@ -12,6 +12,41 @@ export interface Call {
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+/** A WebSocket the test controls: nothing connects until the test says so. */
+export class FakeWebSocket {
+  static instances: FakeWebSocket[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  closed = false;
+
+  constructor(readonly url: string) {
+    FakeWebSocket.instances.push(this);
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  // Test controls
+  open() {
+    this.onopen?.();
+  }
+  send(message: WsMessage) {
+    this.onmessage?.({ data: JSON.stringify(message) });
+  }
+  sendRaw(data: string) {
+    this.onmessage?.({ data });
+  }
+  drop() {
+    this.onclose?.();
+  }
+  static get last(): FakeWebSocket {
+    return FakeWebSocket.instances[FakeWebSocket.instances.length - 1]!;
+  }
+}
 
 /**
  * A stand-in for the server: a small in-memory backend behind a stubbed `fetch`. Tests reach into
@@ -29,6 +64,7 @@ export function fakeBackend() {
       cooldownUntil: null,
       questionLimit: { limit: 10, used: 0, remaining: 10 },
     } as MeResponse,
+    state: { assignment: null, pendingQuestion: null } as StateResponse,
     /** Overrides: `"METHOD /path"` → response, for refusals and special answers. */
     overrides: new Map<string, () => Response>(),
   };
@@ -52,6 +88,7 @@ export function fakeBackend() {
     }
     if (!state.signedIn) return json({ error: 'unauthorized' }, 401);
     if (method === 'GET' && url === '/api/me') return json(state.me);
+    if (method === 'GET' && url === '/api/state') return json(state.state);
     if (method === 'PATCH' && url === '/api/me') {
       state.me = { ...state.me, locale: body.locale };
       return json(state.me);
@@ -59,11 +96,13 @@ export function fakeBackend() {
     return json({ error: 'not_found' }, 404);
   };
 
+  FakeWebSocket.instances = [];
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, init?: RequestInit) => handler(String(url), init)),
   );
-  return { calls, state };
+  vi.stubGlobal('WebSocket', FakeWebSocket);
+  return { calls, state, sockets: FakeWebSocket };
 }
 
 export function renderApp(): RenderResult {
