@@ -5,6 +5,7 @@ export * from './result';
 export * from './settings';
 export * from './users';
 export * from './admin-questions';
+export * from './admin-stats';
 export * from './admin-test-users';
 export * from './admin-users';
 export * from './availability';
