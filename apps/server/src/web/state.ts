@@ -29,6 +29,7 @@ export function toMeResponse(state: UserState): MeResponse {
     busy: state.assignment !== null,
     cooldownUntil: state.cooldownUntil && iso(state.cooldownUntil),
     questionLimit: state.questionLimit,
+    messageMaxLength: state.messageMaxLength,
   };
 }
 

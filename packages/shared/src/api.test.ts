@@ -36,6 +36,7 @@ describe('state responses', () => {
         busy: false,
         cooldownUntil: null,
         questionLimit: { limit: 10, used: 0, remaining: 10 },
+        messageMaxLength: 2000,
       }).success,
     ).toBe(true);
   });

@@ -34,6 +34,8 @@ export interface UserState {
   cooldownUntil: Date | null;
   /** Questions asked in the last 24 hours against the limit. */
   questionLimit: { limit: number; used: number; remaining: number };
+  /** The longest message accepted now (`MESSAGE_MAX_LENGTH`). */
+  messageMaxLength: number;
 }
 
 /**
@@ -92,5 +94,6 @@ export async function getUserState(
       : null,
     cooldownUntil: user.paused ? user.cooldownUntil : null,
     questionLimit: { limit, used, remaining: Math.max(0, limit - used) },
+    messageMaxLength: settings.MESSAGE_MAX_LENGTH,
   });
 }

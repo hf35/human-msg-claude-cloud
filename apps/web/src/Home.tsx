@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { MeResponse } from '@human-msg/shared';
 import { api } from './api';
+import { AskPanel } from './AskPanel';
 import { useI18n } from './i18n';
 import { useRealtime } from './useRealtime';
 
@@ -30,18 +31,18 @@ export function Home({ me }: { me: MeResponse }) {
         </p>
       )}
 
-      {/* Plain placeholders: the real cards come with the next tasks */}
+      {/* Plain placeholder: the card of the incoming question comes with the next task */}
       {assignment && (
         <p data-testid="incoming">
           {t.web.state.incoming} {assignment.text}
         </p>
       )}
-      {pendingQuestion && (
-        <p data-testid="pending">
+      {state.data && !assignment && <AskPanel me={me} pendingQuestion={pendingQuestion ?? null} />}
+      {state.data && assignment && pendingQuestion && (
+        <p className="hint" data-testid="pending">
           {t.web.state.waiting} {pendingQuestion.text}
         </p>
       )}
-      {state.data && !assignment && !pendingQuestion && <p className="hint">{t.web.state.idle}</p>}
 
       <button type="button" onClick={() => void signOut()}>
         {t.web.header.signOut}
