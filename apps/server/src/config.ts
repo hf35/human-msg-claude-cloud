@@ -26,6 +26,8 @@ const envSchema = z.object({
     .enum(['true', 'false', '1', '0'])
     .default('false')
     .transform((value) => value === 'true' || value === '1'),
+  // Seconds between WebSocket pings; a connection that misses one pong is closed
+  WS_PING_INTERVAL: z.coerce.number().positive().default(30),
   DATABASE_URL: z
     .string({ error: 'is not set (see .env.example)' })
     .trim()
@@ -42,6 +44,7 @@ export interface Config {
   /** Sign-in without Google; only ever true when `nodeEnv` is `development`. */
   devLogin: boolean;
   serverId: string;
+  wsPingIntervalMs: number;
   workerIntervalMs: number;
   dispatchIntervalMs: number;
 }
@@ -71,5 +74,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     serverId: values.SERVER_ID,
     workerIntervalMs: Math.round(values.WORKER_INTERVAL * 1000),
     dispatchIntervalMs: Math.round(values.DISPATCH_INTERVAL * 1000),
+    wsPingIntervalMs: Math.round(values.WS_PING_INTERVAL * 1000),
   };
 }

@@ -25,6 +25,8 @@ export async function createWebHarness(
     core,
     ...appOptions,
   });
+  // Plugins finish loading here; the WebSocket upgrade handler is attached on ready
+  await app.ready();
 
   let counter = 0;
   return {

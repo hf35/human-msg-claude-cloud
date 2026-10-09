@@ -61,6 +61,8 @@ export async function startServer(
     config,
     core,
     googleVerifier,
+    serverId: config.serverId,
+    wsPingIntervalMs: config.wsPingIntervalMs,
     healthCheck: async () => void (await pool.query('SELECT 1')),
   });
   // A broken idle connection must not crash the process; the pool replaces it
