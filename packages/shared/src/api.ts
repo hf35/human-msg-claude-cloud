@@ -120,5 +120,49 @@ export const ACTION_ERRORS = [
   'no_active_assignment',
   'not_found',
   'not_answered',
+  'invalid_cursor',
 ] as const;
 export type ActionError = (typeof ACTION_ERRORS)[number];
+
+/** `GET /api/history` query. */
+export const historyQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  /** The `nextCursor` of the previous page. */
+  cursor: z.string().min(1).optional(),
+});
+export type HistoryQuery = z.infer<typeof historyQuerySchema>;
+
+/** An item of the history: a question the user asked, or an answer the user gave. */
+export const historyItemSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('question'),
+    id: z.string(),
+    questionId: z.string(),
+    text: z.string(),
+    status: z.enum(['queued', 'assigned', 'answered', 'expired']),
+    createdAt: isoTime,
+    /** The answer with the question it belongs to; `null` while there is none. */
+    answer: z
+      .object({ text: z.string(), responderAlias: z.string(), createdAt: isoTime })
+      .nullable(),
+  }),
+  z.object({
+    kind: z.literal('answer'),
+    id: z.string(),
+    questionId: z.string(),
+    /** The user's own answer. */
+    text: z.string(),
+    questionText: z.string(),
+    authorAlias: z.string(),
+    createdAt: isoTime,
+  }),
+]);
+export type HistoryItemDto = z.infer<typeof historyItemSchema>;
+
+/** `GET /api/history`: newest first. */
+export const historyResponseSchema = z.object({
+  items: z.array(historyItemSchema),
+  /** Pass as `cursor` to get the next page; `null` on the last page. */
+  nextCursor: z.string().nullable(),
+});
+export type HistoryResponse = z.infer<typeof historyResponseSchema>;

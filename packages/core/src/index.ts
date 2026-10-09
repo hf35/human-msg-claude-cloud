@@ -16,3 +16,4 @@ export * from './worker';
 export * from './worker-loop';
 export * from './sessions';
 export * from './state';
+export * from './history';

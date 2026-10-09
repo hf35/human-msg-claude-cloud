@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type { Core } from '@human-msg/core';
 import type { Config } from './config';
 import { registerActionRoutes } from './web/actions';
+import { registerHistoryRoutes } from './web/history';
 import { registerAuthRoutes } from './web/auth';
 import type { GoogleTokenVerifier } from './web/google';
 import { registerSessions } from './web/session';
@@ -51,6 +52,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
     registerStateRoutes(app, { core });
     registerActionRoutes(app, { core });
+    registerHistoryRoutes(app, { core });
   }
 
   return app;
