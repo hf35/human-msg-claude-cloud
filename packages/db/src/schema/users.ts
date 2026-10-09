@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, check, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 export const USER_CHANNELS = ['web', 'telegram'] as const;
 export type UserChannel = (typeof USER_CHANNELS)[number];
@@ -30,6 +40,11 @@ export const users = pgTable(
     isStaff: boolean('is_staff').notNull().default(false),
     /** `false` is the "do not disturb" mode. */
     receivingEnabled: boolean('receiving_enabled').notNull().default(true),
+    /**
+     * Deadlines missed in a row (Telegram users). Reset by an answer or a skip, and when the
+     * automatic "do not disturb" is switched on.
+     */
+    missedDeadlines: integer('missed_deadlines').notNull().default(0),
     /** When Telegram reported that the user blocked the bot. */
     botBlockedAt: timestamptz('bot_blocked_at'),
     /** No new questions are assigned before this moment. */
@@ -39,6 +54,7 @@ export const users = pgTable(
   },
   (table) => [
     check('users_channel_valid', sql`${table.channel} IN ('web', 'telegram')`),
+    check('users_missed_deadlines_not_negative', sql`${table.missedDeadlines} >= 0`),
     check('users_locale_valid', sql`${table.locale} IN ('ru', 'en')`),
     // A web user cannot have a Telegram id and vice versa
     check(

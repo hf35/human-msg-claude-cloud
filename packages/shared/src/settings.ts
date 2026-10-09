@@ -54,6 +54,11 @@ export const settingsSchema = z
     /** Telegram quiet hours as "HH:MM-HH:MM"; equal start and end switch them off. */
     QUIET_HOURS: timeRange.default('23:00-09:00'),
     QUIET_HOURS_TZ: timeZone.default('Europe/Moscow'),
+    /**
+     * A Telegram user who misses this many deadlines in a row gets "do not disturb" switched on
+     * automatically. A reply or a skip resets the count; 0 switches the feature off.
+     */
+    AUTO_DND_AFTER_MISSED: z.number().int().min(0).default(3),
     /** Questions a user may ask within a rolling 24 hours. */
     QUESTIONS_PER_DAY: z.number().int().min(1).default(10),
     /** Maximum length of a question or an answer, in visible characters. */
