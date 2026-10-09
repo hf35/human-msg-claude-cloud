@@ -25,6 +25,7 @@
     "test:watch": "vitest",
     "db:check": "pnpm --filter @human-msg/db db:check",
     "db:generate": "pnpm --filter @human-msg/db db:generate",
-    "db:migrate": "pnpm --filter @human-msg/db db:migrate"
+    "db:migrate": "pnpm --filter @human-msg/db db:migrate",
+    "e2e": "pnpm --filter @human-msg/e2e test"
   }
 }
