@@ -1,5 +1,6 @@
 export const APP_NAME = 'human-msg';
 
+export * from './admin';
 export * from './alias';
 export * from './api';
 export * from './events';
