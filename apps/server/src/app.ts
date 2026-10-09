@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Core } from '@human-msg/core';
 import type { Config } from './config';
+import { registerAdminAuth, type AdminAuthOptions } from './admin/auth';
 import { registerActionRoutes } from './web/actions';
 import { registerHistoryRoutes } from './web/history';
 import { registerAuthRoutes } from './web/auth';
@@ -11,6 +12,10 @@ import { registerWebSocket } from './web/ws';
 
 export interface AppOptions {
   config: Pick<Config, 'logLevel'> & Partial<Pick<Config, 'nodeEnv' | 'devLogin'>>;
+  /** Back office sign-in; without it the back office API answers 503. */
+  backoffice?: Config['backoffice'];
+  /** Limits and clock of the back office sign-in; tests tighten them. */
+  backofficeAuth?: Pick<AdminAuthOptions, 'maxFailures' | 'windowMs' | 'now'>;
   /** The core behind the web API; without it only `/health` is served. */
   core?: Core;
   /** Checks Google ID tokens; without it `POST /api/auth/google` answers 503. */
@@ -35,6 +40,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     config,
     core,
     googleVerifier,
+    backoffice,
+    backofficeAuth,
     healthCheck,
     serverId = 'server-1',
     wsPingIntervalMs = 30_000,
@@ -61,6 +68,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       googleVerifier,
       // Double lock: the flag is honoured only in development, whatever the caller passed
       devLogin: config.devLogin === true && config.nodeEnv === 'development',
+    });
+    registerAdminAuth(app, {
+      ...backofficeAuth,
+      ...(backoffice && { credentials: backoffice }),
+      secureCookies: config.nodeEnv === 'production',
     });
     registerStateRoutes(app, { core });
     registerActionRoutes(app, { core });

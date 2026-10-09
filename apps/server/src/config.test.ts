@@ -88,6 +88,23 @@ describe('loadConfig', () => {
     }
   });
 
+  it('reads the back office credentials, both or neither', async () => {
+    const { hashPassword } = await import('./admin/password');
+    const passwordHash = await hashPassword('secret123');
+    expect(loadConfig({ DATABASE_URL }).backoffice).toBeUndefined();
+    expect(
+      loadConfig({
+        DATABASE_URL,
+        BACKOFFICE_LOGIN: 'admin',
+        BACKOFFICE_PASSWORD_HASH: passwordHash,
+      }).backoffice,
+    ).toEqual({ login: 'admin', passwordHash });
+    expect(() => loadConfig({ DATABASE_URL, BACKOFFICE_LOGIN: 'admin' })).toThrow(/together/);
+    expect(() =>
+      loadConfig({ DATABASE_URL, BACKOFFICE_LOGIN: 'a', BACKOFFICE_PASSWORD_HASH: 'plain' }),
+    ).toThrow(/BACKOFFICE_PASSWORD_HASH/);
+  });
+
   it('has no bot without a token', () => {
     expect(loadConfig({ DATABASE_URL }).telegram).toBeUndefined();
   });
