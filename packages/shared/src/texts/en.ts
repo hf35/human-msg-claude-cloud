@@ -35,6 +35,7 @@ export const en: Texts = {
       `You missed ${count} questions in a row, so we switched off other people's questions. Send /resume to come back.`,
     skipped: 'Question skipped.',
     reported: 'Report received. You will not get questions from this person anymore.',
+    answerReported: 'Report received. You will not get answers from this person anymore.',
   },
 
   bot: {

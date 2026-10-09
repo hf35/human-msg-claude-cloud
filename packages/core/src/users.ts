@@ -32,6 +32,9 @@ export const findUserByGoogleSub = async (tx: Tx, googleSub: string): Promise<Us
 export const findUserByTelegramId = async (tx: Tx, telegramId: number): Promise<User | undefined> =>
   (await tx.select().from(users).where(eq(users.telegramId, telegramId)))[0];
 
+export const findUserById = async (tx: Tx, id: string): Promise<User | undefined> =>
+  (await tx.select().from(users).where(eq(users.id, id)))[0];
+
 /** Postgres error details behind a Drizzle error, if any. */
 function pgError(error: unknown): { code?: string; constraint?: string } {
   const cause = (error as { cause?: unknown }).cause;
