@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isPasswordHash } from './admin/password';
 
 /**
  * Infrastructure settings and secrets, read from environment variables. Product settings
@@ -49,6 +50,12 @@ const envSchema = z.object({
   PUBLIC_URL: optional(z.url()),
   // Address of the Bot API; the official one unless a local Bot API server is used
   TELEGRAM_API_ROOT: optional(z.url()),
+  // Back office sign-in: the login and a hash made by `pnpm --filter @human-msg/server hash-password`.
+  // Without both the back office API answers 503
+  BACKOFFICE_LOGIN: optional(z.string().trim()),
+  BACKOFFICE_PASSWORD_HASH: optional(
+    z.string().trim().refine(isPasswordHash, 'is not a hash made by hash-password'),
+  ),
   // Seconds between WebSocket pings; a connection that misses one pong is closed
   WS_PING_INTERVAL: z.coerce.number().positive().default(30),
   DATABASE_URL: z
@@ -74,6 +81,8 @@ export interface Config {
     /** Set in webhook mode: where Telegram posts updates and the secret it must send. */
     webhook?: { url: string; secret: string };
   };
+  /** Back office credentials; absent when the back office is not configured. */
+  backoffice?: { login: string; passwordHash: string };
   serverId: string;
   wsPingIntervalMs: number;
   workerIntervalMs: number;
@@ -93,6 +102,11 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (values.DEV_LOGIN && values.NODE_ENV !== 'development') {
     // A forgotten flag must not open a passwordless door; failing loudly beats ignoring it
     throw new Error('Invalid configuration: DEV_LOGIN: allowed only when NODE_ENV=development');
+  }
+  if (Boolean(values.BACKOFFICE_LOGIN) !== Boolean(values.BACKOFFICE_PASSWORD_HASH)) {
+    throw new Error(
+      'Invalid configuration: BACKOFFICE_LOGIN and BACKOFFICE_PASSWORD_HASH are set together or not at all',
+    );
   }
   let webhook: { url: string; secret: string } | undefined;
   if (values.TELEGRAM_BOT_TOKEN && values.TELEGRAM_MODE === 'webhook') {
@@ -123,6 +137,13 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
         ...(values.TELEGRAM_API_ROOT && { apiRoot: values.TELEGRAM_API_ROOT }),
       },
     }),
+    ...(values.BACKOFFICE_LOGIN &&
+      values.BACKOFFICE_PASSWORD_HASH && {
+        backoffice: {
+          login: values.BACKOFFICE_LOGIN,
+          passwordHash: values.BACKOFFICE_PASSWORD_HASH,
+        },
+      }),
     serverId: values.SERVER_ID,
     workerIntervalMs: Math.round(values.WORKER_INTERVAL * 1000),
     dispatchIntervalMs: Math.round(values.DISPATCH_INTERVAL * 1000),

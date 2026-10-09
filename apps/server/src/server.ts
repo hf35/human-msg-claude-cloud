@@ -67,6 +67,7 @@ export async function startServer(
     config,
     core,
     googleVerifier,
+    backoffice: config.backoffice,
     serverId: config.serverId,
     wsPingIntervalMs: config.wsPingIntervalMs,
     healthCheck: async () => void (await pool.query('SELECT 1')),
