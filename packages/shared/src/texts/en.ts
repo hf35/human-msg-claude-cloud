@@ -45,6 +45,28 @@ export const en: Texts = {
     resumed: "You're back - other people's questions will arrive again.",
   },
 
+  web: {
+    signIn: {
+      title: 'Ask a real person',
+      subtitle: 'Anonymous questions and answers: your question goes to a random person.',
+      googleHint: 'Sign in with Google. Other users will only see your alias.',
+      googleUnavailable: 'Google sign-in is not set up on this server.',
+      devTitle: 'Development sign-in',
+      devName: 'Name of the test user',
+      devButton: 'Sign in without Google',
+      failed: 'Could not sign in. Please try again.',
+    },
+    header: {
+      signedInAs: (alias: string) => `You are "${alias}"`,
+      signOut: 'Sign out',
+      language: 'Language',
+    },
+    errors: {
+      network: 'Cannot reach the server. Check your connection and try again.',
+      loading: 'Loading…',
+    },
+  },
+
   errors: {
     generic: 'Something went wrong. Please try again in a moment.',
   },

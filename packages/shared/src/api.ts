@@ -189,3 +189,7 @@ export type QuestionRefResponse = z.infer<typeof questionRefResponseSchema>;
 
 /** Body of every refused request: a machine-readable reason (see `ACTION_ERRORS`). */
 export const errorResponseSchema = z.object({ error: z.string() });
+
+/** `PATCH /api/me`: the user switches the interface language; it is stored in their profile. */
+export const updateMeRequestSchema = z.object({ locale });
+export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;

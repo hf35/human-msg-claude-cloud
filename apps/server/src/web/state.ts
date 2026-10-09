@@ -1,5 +1,5 @@
-import { getUserState, type Core, type UserState } from '@human-msg/core';
-import type { MeResponse, StateResponse } from '@human-msg/shared';
+import { getUserState, setUserLocale, type Core, type UserState } from '@human-msg/core';
+import { updateMeRequestSchema, type MeResponse, type StateResponse } from '@human-msg/shared';
 import type { FastifyInstance } from 'fastify';
 
 const iso = (date: Date) => date.toISOString();
@@ -43,6 +43,20 @@ export function registerStateRoutes(app: FastifyInstance, { core }: { core: Core
     // The user was deleted while the session was alive
     if (!state) return reply.code(401).send({ error: 'unauthorized' });
     return toMeResponse(state);
+  });
+
+  app.patch('/api/me', { preHandler: app.sessions.requireUser }, async (request, reply) => {
+    const body = updateMeRequestSchema.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'invalid_request' });
+    const userId = request.user!.id;
+    const result = await core.run(async (ctx) => {
+      if ((await setUserLocale(ctx.tx, userId, body.data.locale)) === 'user_not_found') {
+        return { ok: false as const, reason: 'user_not_found' as const };
+      }
+      return getUserState(ctx, userId);
+    });
+    if (!result.ok) return reply.code(401).send({ error: 'unauthorized' });
+    return toMeResponse(result.value);
   });
 
   app.get('/api/state', { preHandler: app.sessions.requireUser }, async (request, reply) => {

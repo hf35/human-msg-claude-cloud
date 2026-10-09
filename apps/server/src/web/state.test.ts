@@ -176,3 +176,39 @@ describe('the question limit', () => {
     expect(me.questionLimit).toEqual({ limit: 10, used: 3, remaining: 7 });
   });
 });
+
+describe('PATCH /api/me', () => {
+  const patch = (h: WebHarness, payload: unknown, cookies?: Record<string, string>) =>
+    h.app.inject({
+      method: 'PATCH',
+      url: '/api/me',
+      payload: payload as object,
+      ...(cookies && { cookies }),
+    });
+
+  it('requires a session', async () => {
+    const h = await harness();
+    expect((await patch(h, { locale: 'en' })).statusCode).toBe(401);
+  });
+
+  it('stores the language and keeps the alias', async () => {
+    const h = await harness();
+    const { user, cookies } = await h.signIn('Зелёный Кролик');
+    const response = await patch(h, { locale: 'en' }, cookies);
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ locale: 'en', alias: 'Зелёный Кролик' });
+    const { rows } = await testDb.pool.query(`SELECT locale, alias FROM users WHERE id = $1`, [
+      user.id,
+    ]);
+    expect(rows).toEqual([{ locale: 'en', alias: 'Зелёный Кролик' }]);
+    expect((await get(h, '/api/me', cookies)).json().locale).toBe('en');
+  });
+
+  it.each([[{ locale: 'de' }], [{}], [{ locale: 1 }]])('refuses the body %j', async (body) => {
+    const h = await harness();
+    const { cookies } = await h.signIn();
+    const response = await patch(h, body, cookies);
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'invalid_request' });
+  });
+});
