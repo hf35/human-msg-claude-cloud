@@ -2,6 +2,7 @@ import {
   DEFAULT_SETTINGS,
   settingsSchema,
   type AdminQuestionDto,
+  type AdminStatsDto,
   type AdminUserDto,
   type HistoryItemDto,
   type Settings,
@@ -68,6 +69,7 @@ export function fakeServer() {
     /** Newest first, as the server lists them. */
     questions: [] as AdminQuestionDto[],
     settings: { ...DEFAULT_SETTINGS } as Settings,
+    stats: null as AdminStatsDto | null,
     /** What each test user sees (`GET /test-users/:id/state`); idle when absent. */
     testStates: {} as Record<string, StateResponse>,
     /** The refusal the next message of a test user gets, if any. */
@@ -182,6 +184,7 @@ export function fakeServer() {
       };
       return json({ questionId: question.id }, 201);
     }
+    if (path === '/admin/api/stats' && state.stats) return json(state.stats);
     if (path === '/admin/api/settings' && method === 'GET') {
       return json({ settings: state.settings, defaults: DEFAULT_SETTINGS });
     }
