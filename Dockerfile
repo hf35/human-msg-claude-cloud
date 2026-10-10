@@ -20,6 +20,29 @@ COPY packages/shared/package.json packages/shared/
 # The server and its workspace dependencies only; the frontends and test tooling stay out
 RUN pnpm install --frozen-lockfile --filter "@human-msg/server..."
 
+# --- static: production bundles of the web app (/static/web) and the back office (/static/admin) ---
+# Caddy serves them (task 12.3). Extract with: docker build --target static --output out .
+FROM ${NODE_IMAGE} AS static-build
+WORKDIR /app
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY apps/web/package.json apps/web/
+COPY apps/backoffice/package.json apps/backoffice/
+COPY packages/shared/package.json packages/shared/
+RUN pnpm install --frozen-lockfile --filter "@human-msg/web..." --filter "@human-msg/backoffice..."
+COPY apps/web/ apps/web/
+COPY apps/backoffice/ apps/backoffice/
+COPY packages/shared/ packages/shared/
+# Compiled into the web bundle at build time (the same OAuth client id as GOOGLE_CLIENT_ID);
+# empty hides the Google button
+ARG VITE_GOOGLE_CLIENT_ID=
+ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+RUN pnpm build
+
+FROM scratch AS static
+COPY --from=static-build /app/apps/web/dist /static/web
+COPY --from=static-build /app/apps/backoffice/dist /static/admin
+
 # --- runtime ---
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app

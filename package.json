@@ -21,6 +21,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "build": "pnpm --filter @human-msg/web --filter @human-msg/backoffice build",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:check": "pnpm --filter @human-msg/db db:check",
