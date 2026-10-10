@@ -59,7 +59,7 @@ export function UserShow() {
           <Typography.Title level={4} style={{ marginTop: 24 }}>
             {texts.history.title}
           </Typography.Title>
-          <History userId={user.id} />
+          <History userId={user.id} version={query.dataUpdatedAt} />
         </>
       )}
     </Show>

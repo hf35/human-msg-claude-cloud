@@ -59,9 +59,10 @@ function Item({ item }: { item: HistoryItemDto }) {
 }
 
 /** What the user asked (with the answers) and what they answered, newest first. */
-export function History({ userId }: { userId: string }) {
+export function History({ userId, version }: { userId: string; version: number }) {
   const history = useInfiniteQuery({
-    queryKey: ['backoffice', 'users', userId, 'history'],
+    // `version` changes when the card is refreshed: the conversation is read anew with it
+    queryKey: ['backoffice', 'users', userId, 'history', version],
     queryFn: async ({ pageParam }) =>
       historyResponseSchema.parse(
         await http('GET', `/users/${encodeURIComponent(userId)}/history`, {

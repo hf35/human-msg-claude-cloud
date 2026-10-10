@@ -143,6 +143,30 @@ describe('user card', () => {
     expect(server.calls.at(-1)?.query).toEqual({ limit: '20', cursor: '1' });
   });
 
+  it('reads the conversation anew when the card is refreshed', async () => {
+    const server = signedIn();
+    renderApp(`/users/${rabbit.id}`);
+    expect(
+      await screen.findByText('Пользователь ещё ничего не спрашивал и не отвечал'),
+    ).toBeTruthy();
+
+    server.state.history[rabbit.id] = [
+      [
+        {
+          kind: 'question',
+          id: 'q3',
+          questionId: 'q3',
+          text: 'Новый вопрос',
+          status: 'queued',
+          createdAt: '2026-10-10T12:00:00.000Z',
+          answer: null,
+        },
+      ],
+    ];
+    await userEvent.click(screen.getByRole('button', { name: /Обновить/ }));
+    expect(await screen.findByText('Новый вопрос')).toBeTruthy();
+  });
+
   it('shows the Telegram id of a Telegram user', async () => {
     signedIn();
     renderApp(`/users/${fox.id}`);

@@ -41,7 +41,7 @@ export function App() {
                 clientConfig: {
                   defaultOptions: {
                     queries: {
-                      // A refusal (401, 404) is an answer, not a glitch: retrying only delays the page
+                      // A refusal (401, 404) is an answer: retrying only delays the page
                       retry: (count, error) =>
                         !(error instanceof AdminApiError && error.status !== 0) && count < 2,
                     },
