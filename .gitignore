@@ -48,3 +48,6 @@ coverage/
 # Playwright
 test-results/
 playwright-report/
+
+# Database dumps made by the backup service (docs/BACKUP.md)
+backups/

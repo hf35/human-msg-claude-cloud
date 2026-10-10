@@ -22,6 +22,25 @@ services:
       timeout: 3s
       retries: 10
 
+  # Daily pg_dump with rotation (docs/BACKUP.md). Dumps land in BACKUP_DIR on the host
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    command: ['/deploy/backup.sh']
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-humanmsg}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-humanmsg}
+      BACKUP_AT: ${BACKUP_AT:-03:00}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./deploy:/deploy:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # Applies pending migrations and exits; the server starts only after it succeeds
   migrate:
     build: &server-build
