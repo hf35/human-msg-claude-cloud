@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router';
 import '@refinedev/antd/dist/reset.css';
+import { ExpiredList } from './expired/ExpiredList';
 import { LoginPage } from './LoginPage';
 import { authProvider } from './providers/auth';
 import { AdminApiError } from './providers/http';
@@ -62,6 +63,12 @@ export function App() {
                 list: '/questions',
                 meta: { label: texts.questions.menu },
               },
+              {
+                // A page over `questions` with status `expired`, with answering
+                name: 'expired',
+                list: '/expired',
+                meta: { label: texts.expired.menu },
+              },
             ]}
           >
             <Routes>
@@ -80,6 +87,7 @@ export function App() {
                   <Route path=":id" element={<UserShow />} />
                 </Route>
                 <Route path="/questions" element={<QuestionList />} />
+                <Route path="/expired" element={<ExpiredList />} />
               </Route>
               <Route
                 element={

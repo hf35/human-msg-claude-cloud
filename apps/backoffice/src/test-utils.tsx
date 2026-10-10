@@ -1,4 +1,10 @@
-import type { AdminQuestionDto, AdminUserDto, HistoryItemDto } from '@human-msg/shared';
+import {
+  DEFAULT_SETTINGS,
+  type AdminQuestionDto,
+  type AdminUserDto,
+  type HistoryItemDto,
+  type Settings,
+} from '@human-msg/shared';
 import { render, type RenderResult } from '@testing-library/react';
 import { vi } from 'vitest';
 import { App } from './App';
@@ -59,6 +65,7 @@ export function fakeServer() {
     users: [] as AdminUserDto[],
     /** Newest first, as the server lists them. */
     questions: [] as AdminQuestionDto[],
+    settings: { ...DEFAULT_SETTINGS } as Settings,
     /** History pages of a user, in the order the cursor walks them. */
     history: {} as Record<string, HistoryItemDto[][]>,
   };
@@ -67,7 +74,7 @@ export function fakeServer() {
     method: string,
     path: string,
     query: URLSearchParams,
-    body: { login?: string; password?: string } | undefined,
+    body: { login?: string; password?: string; text?: string } | undefined,
   ) => {
     if (path === '/admin/api/login' && method === 'POST') {
       if (body?.login === 'admin' && body?.password === 'secret') {
@@ -104,6 +111,25 @@ export function fakeServer() {
           (!query.has('authorId') || question.authorId === query.get('authorId')),
       );
       return json({ items: items.slice(offset, offset + limit), total: items.length });
+    }
+    const staffAnswer = path.match(/^\/admin\/api\/questions\/([^/]+)\/staff-answer$/);
+    if (staffAnswer && method === 'POST') {
+      const question = state.questions.find((candidate) => candidate.id === staffAnswer[1]);
+      if (!question) return json({ error: 'not_found' }, 404);
+      if (question.status !== 'expired') return json({ error: 'not_expired' }, 409);
+      const text = body?.text?.trim() ?? '';
+      if (text.length < 2) return json({ error: text ? 'tooShort' : 'empty' }, 400);
+      question.status = 'answered';
+      question.answer = {
+        text,
+        responderId: '00000000-0000-4000-8000-0000000000aa',
+        responderAlias: 'Зелёный Кролик',
+        createdAt: new Date().toISOString(),
+      };
+      return json({ questionId: question.id }, 201);
+    }
+    if (path === '/admin/api/settings' && method === 'GET') {
+      return json({ settings: state.settings, defaults: DEFAULT_SETTINGS });
     }
     const history = path.match(/^\/admin\/api\/users\/([^/]+)\/history$/);
     if (history) {
