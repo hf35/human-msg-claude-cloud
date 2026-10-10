@@ -35,6 +35,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
+    // Refine and antd render slowly in jsdom; a test walks several pages
+    testTimeout: 20_000,
     // Refine's packages must be bundled with the app: loaded natively they get a second copy of
     // react-router (CJS next to ESM) and fail with "useLocation() may be used only in <Router>"
     server: { deps: { inline: [/@refinedev/, /react-router/] } },

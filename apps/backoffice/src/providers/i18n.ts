@@ -10,6 +10,8 @@ const phrases: Record<string, string> = {
   'buttons.save': 'Сохранить',
   'buttons.cancel': 'Отмена',
   'buttons.show': 'Открыть',
+  'actions.show': 'Карточка',
+  'actions.list': 'Список',
   'buttons.filter': 'Фильтр',
   'buttons.clear': 'Сбросить',
   'table.actions': 'Действия',
@@ -19,7 +21,9 @@ const phrases: Record<string, string> = {
 };
 
 export const i18nProvider: I18nProvider = {
-  translate: (key, _options, defaultMessage) => phrases[key] ?? defaultMessage ?? key,
+  // Refine calls both `translate(key, options, default)` and `translate(key, default)`
+  translate: (key: string, options?: unknown, defaultMessage?: string) =>
+    phrases[key] ?? defaultMessage ?? (typeof options === 'string' ? options : key),
   changeLocale: async () => undefined,
   getLocale: () => 'ru',
 };

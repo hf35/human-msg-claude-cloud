@@ -1,5 +1,8 @@
 import { afterEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
+
+// The first render of Refine and antd in a test file is slow: wait longer than the default 1 s
+configure({ asyncUtilTimeout: 5000 });
 
 // Components of one test must not outlive it
 afterEach(() => cleanup());
