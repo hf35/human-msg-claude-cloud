@@ -14,6 +14,7 @@ import { authProvider } from './providers/auth';
 import { AdminApiError } from './providers/http';
 import { dataProvider } from './providers/data';
 import { i18nProvider } from './providers/i18n';
+import { TestUserList } from './test-users/TestUserList';
 import { texts } from './texts';
 import { QuestionList } from './questions/QuestionList';
 import { UserList } from './users/UserList';
@@ -69,6 +70,11 @@ export function App() {
                 list: '/expired',
                 meta: { label: texts.expired.menu },
               },
+              {
+                name: 'test-users',
+                list: '/test-users',
+                meta: { label: texts.testUsers.menu },
+              },
             ]}
           >
             <Routes>
@@ -88,6 +94,7 @@ export function App() {
                 </Route>
                 <Route path="/questions" element={<QuestionList />} />
                 <Route path="/expired" element={<ExpiredList />} />
+                <Route path="/test-users" element={<TestUserList />} />
               </Route>
               <Route
                 element={
