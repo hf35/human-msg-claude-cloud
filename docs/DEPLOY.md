@@ -9,15 +9,16 @@ Docker Compose ([`docker-compose.prod.yml`](../docker-compose.prod.yml)):
 | `server`   | API, веб-сокеты, бот, воркер и доставка событий в одном процессе                   |
 | `postgres` | База данных (том `pgdata`, наружу не открыта)                                      |
 | `migrate`  | Разово применяет миграции и завершается; `server` стартует только после него       |
-| `backup`   | Ежедневный `pg_dump` с ротацией, см. [BACKUP.md](BACKUP.md)                        |
+| `backup`   | `pg_dump` раз в месяц с ротацией, см. [BACKUP.md](BACKUP.md)                       |
 
 Адреса: `https://<домен>/` — веб, `https://<домен>/admin/` — бэкофис,
 `https://<домен>/telegram/webhook` — вход для Telegram (только для самого Telegram).
 
 ## 0. Что понадобится
 
-- VPS с Ubuntu 22.04/24.04 (или другим Linux с Docker): от 1 vCPU и 2 ГБ памяти. Образы
-  собираются на самом сервере, на 1 ГБ сборка может не уложиться: добавьте swap.
+- VPS с Ubuntu 22.04/24.04 (или другим Linux с Docker). Памяти нужно **512 МБ** (и swap), если
+  образы собирает CI, а сервер их только скачивает: раздел 9, это рекомендуемый путь. Если собирать
+  на самом сервере, нужно около **2 ГБ**: сборка фронтендов занимает до 1 ГБ.
 - Домен, чьей DNS-записью вы управляете.
 - Аккаунт Google (для OAuth) и аккаунт Telegram (для бота).
 
@@ -107,7 +108,7 @@ BACKOFFICE_LOGIN=admin
 BACKOFFICE_PASSWORD_HASH=''
 ```
 
-Остальные переменные (`LOG_LEVEL`, `BACKUP_AT`, `BACKUP_KEEP_DAYS`, `BACKUP_DIR`, `NODE_IMAGE`,
+Остальные переменные (`LOG_LEVEL`, `BACKUP_EVERY_DAYS`, `BACKUP_KEEP_DAYS`, `BACKUP_DIR`, `NODE_IMAGE`,
 `CADDY_IMAGE` и т. д.) необязательны, значения по умолчанию описаны в `.env.example`.
 `NODE_ENV`, `HOST`, `TRUST_PROXY`, `DEV_LOGIN` и `DATABASE_URL` compose задаёт сам, их в `.env`
 писать не нужно (вход без Google в продакшене выключен и включить его нельзя).
@@ -144,7 +145,7 @@ BACKOFFICE_PASSWORD_HASH='scrypt$16384$8$1$…'
 dc up -d --build
 ```
 
-Что происходит: собираются образы (первый раз 3–10 минут), поднимается `postgres`, `migrate`
+На сервере с 512 МБ эта команда не подходит: используйте раздел 9. Что происходит: собираются образы (первый раз 3–10 минут), поднимается `postgres`, `migrate`
 применяет миграции и завершается, затем стартуют `server` и `caddy`. Caddy сам получает
 сертификат Let's Encrypt для `SITE_ADDRESS`.
 
@@ -179,12 +180,15 @@ dc up -d --build
 до старта нового сервера; если миграция упала, `server` не запускается и работает прежняя версия
 (см. `dc logs migrate`).
 
+На сервере с 512 МБ вместо `git pull` и `--build` делайте `git pull`, `dc pull`, `dc up -d --no-build`
+(раздел 9).
+
 Изменили `.env`: `dc up -d` применит новые значения к затронутым сервисам.
-Сменили `GOOGLE_CLIENT_ID`: нужен `dc up -d --build` (веб пересобирается).
+Сменили `GOOGLE_CLIENT_ID`: образ `caddy` с вшитым идентификатором нужно собрать заново: `dc up -d --build` (или перезапуск workflow «Images» с новой переменной и `dc pull`, раздел 9).
 
 ## 8. Эксплуатация
 
-- **Бэкапы** делаются каждую ночь; восстановление и копирование вне сервера — в
+- **Бэкапы** делаются раз в месяц (и перед каждым обновлением вручную); восстановление и копирование вне сервера — в
   [BACKUP.md](BACKUP.md). Настройте копирование каталога `backups/` на другую машину сразу.
 - **Логи:** `dc logs -f server`, `dc logs caddy`. Формат — JSON (pino).
 - **Состояние:** `dc ps -a`; проверка процесса и базы — `GET /health` (изнутри:
@@ -194,6 +198,55 @@ dc up -d --build
 - **Перезагрузка сервера:** все сервисы `restart: unless-stopped` и поднимутся сами вместе с Docker.
 - **Остановка:** `dc down` (данные сохраняются); `dc down -v` удаляет тома вместе с базой и
   сертификатами, не делайте этого без свежего бэкапа.
+
+## 9. Сервер с 512 МБ: образы из CI
+
+Фронтенды собираются с пиком памяти около 0,7–1 ГБ, на 512 МБ это не пройдёт. Поэтому образы
+собирает GitHub Actions ([`.github/workflows/images.yml`](../.github/workflows/images.yml)) и
+публикует их в GitHub Container Registry, а сервер только скачивает готовое. Работающий стек
+занимает около 350–400 МБ (в простое: `server` ≈ 80, `postgres` ≈ 35–45, `caddy` ≈ 12, Docker ≈ 155,
+плюс ОС), поэтому нужен swap, а у сервисов в compose заданы лимиты памяти.
+
+**Один раз в репозитории на GitHub:**
+
+1. Settings → Secrets and variables → Actions → **Variables** → New repository variable:
+   `GOOGLE_CLIENT_ID` = идентификатор клиента из шага 2 (он публичный и вшивается в веб при сборке).
+   Без неё веб соберётся без кнопки Google (в логе workflow будет предупреждение).
+2. Actions → **Images** → Run workflow (или просто сделайте пуш в `main`). Через несколько минут в
+   разделе Packages репозитория появятся образы `server` и `caddy`.
+3. Пакеты GHCR по умолчанию приватные. Либо сделайте оба публичными (Package settings → Change
+   visibility → Public; в образах нет секретов), либо войдите на сервере:
+   `echo <токен> | docker login ghcr.io -u <пользователь> --password-stdin` (токен classic с правом
+   `read:packages`).
+
+**На сервере, до шага 5:**
+
+```sh
+# swap 1 ГБ (без него сервер на 512 МБ упрётся в память при пиках)
+fallocate -l 1G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+sysctl vm.swappiness=20 && echo 'vm.swappiness=20' > /etc/sysctl.d/99-swappiness.conf
+```
+
+Дальше те же шаги, но без сборки на сервере: перед шагом 5 выполните `dc pull`, шаг 6 запускайте
+как `dc up -d --no-build`.
+
+**Обновление:**
+
+```sh
+git pull                                      # compose-файл и скрипты
+dc run --rm backup /deploy/backup.sh once     # бэкап перед обновлением
+dc pull
+dc up -d --no-build
+```
+
+Образы публикуются при каждом пуше в `main` (теги `latest` и хеш коммита). Нужную версию можно
+зафиксировать в `.env`: `IMAGE_TAG=<хеш коммита>`; откат на предыдущую версию — прежний тег и снова
+`dc up -d --no-build`. Если `IMAGE_REPO` не подходит (форк), задайте его в `.env`.
+
+**Следите за памятью:** `docker stats --no-stream` и `free -m`. Если процессы перезапускаются
+(`dc ps -a`, `dmesg | grep -i oom`), сначала проверьте, что swap включён (`swapon --show`); если
+не помогает, нужен тариф побольше.
 
 ## Закрыть бэкофис дополнительно
 
@@ -224,4 +277,5 @@ dc up -d --build
 | Google: `origin_mismatch` / «Error 400»              | В Authorized JavaScript origins нет точного `https://<домен>` (шаг 2)                                                                              |
 | Бот молчит                                           | `dc logs server` (должна быть строка про вебхук); токен верный, `PUBLIC_URL` — публичный https; секрет — только буквы, цифры, `_`, `-`             |
 | Бэкофис отвечает 503 на вход                          | Не заданы `BACKOFFICE_LOGIN` и `BACKOFFICE_PASSWORD_HASH`                                                                                          |
+| `dc pull`: `denied` / `unauthorized` | Пакеты GHCR приватные: сделайте их публичными или выполните `docker login ghcr.io` (раздел 9) |
 | `docker pull` падает с 429                           | Лимит Docker Hub: задайте `NODE_IMAGE` и `CADDY_IMAGE` из зеркала (см. `.env.example`) или подождите                                              |

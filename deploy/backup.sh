@@ -1,19 +1,31 @@
 #!/bin/sh
-# Daily PostgreSQL backup with rotation (service "backup" in docker-compose.prod.yml).
+# Periodic PostgreSQL backup with rotation (service "backup" in docker-compose.prod.yml).
 #
-#   backup.sh         run forever: one backup every day at BACKUP_AT (UTC)
-#   backup.sh once    make one backup now and exit (manual run, checks)
+#   backup.sh         run forever: once a day at BACKUP_AT (UTC) check whether the newest dump is
+#                     older than BACKUP_EVERY_DAYS, and make a new one if so
+#   backup.sh once    make one backup now and exit (manual run, before an update)
+#
+# Checking the age of the newest dump, rather than counting days on a calendar, means a backup is
+# never skipped because the container was down at the planned moment: the first check after the
+# start makes the missing backup.
 #
 # Connection: the standard PG* variables (PGHOST, PGUSER, PGPASSWORD, PGDATABASE).
-# BACKUP_DIR (default /backups) holds the dumps, BACKUP_AT (default 03:00) is the daily time,
-# BACKUP_KEEP_DAYS (default 14) is how long a dump is kept.
+# BACKUP_DIR (default /backups) holds the dumps, BACKUP_AT (default 03:00) is the time of the daily
+# check, BACKUP_EVERY_DAYS (default 30) is the interval between dumps, BACKUP_KEEP_DAYS (default 180)
+# is how long a dump is kept.
 set -eu
 
 DIR="${BACKUP_DIR:-/backups}"
 AT="${BACKUP_AT:-03:00}"
-KEEP_DAYS="${BACKUP_KEEP_DAYS:-14}"
+EVERY_DAYS="${BACKUP_EVERY_DAYS:-30}"
+KEEP_DAYS="${BACKUP_KEEP_DAYS:-180}"
 
 log() { echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') backup: $*"; }
+
+# True when there is no dump younger than EVERY_DAYS
+backup_due() {
+  ! find "$DIR" -maxdepth 1 -name "${PGDATABASE:-db}-*.dump" -mtime "-$EVERY_DAYS" | grep -q .
+}
 
 backup_once() {
   name="${PGDATABASE:-db}-$(date -u +%Y%m%d-%H%M%S).dump"
@@ -44,12 +56,12 @@ if [ "${1:-}" = "once" ]; then
   exit $?
 fi
 
-log "daily at $AT UTC, keeping $KEEP_DAYS days in $DIR"
+log "every $EVERY_DAYS days (checked daily at $AT UTC), keeping $KEEP_DAYS days in $DIR"
 while true; do
   now=$(date -u +%s)
   next=$(date -u -d "$(date -u +%Y-%m-%d) $AT:00" +%s)
   [ "$next" -gt "$now" ] || next=$((next + 86400))
   sleep $((next - now))
-  # A failed backup is logged and retried tomorrow; the loop must survive it
-  backup_once || true
+  # A failed backup is logged and retried at the next daily check; the loop must survive it
+  if backup_due; then backup_once || true; else log "skipped: the newest dump is younger than $EVERY_DAYS days"; fi
 done
