@@ -14,6 +14,7 @@ import { authProvider } from './providers/auth';
 import { AdminApiError } from './providers/http';
 import { dataProvider } from './providers/data';
 import { i18nProvider } from './providers/i18n';
+import { SettingsPage } from './settings/SettingsPage';
 import { TestUserList } from './test-users/TestUserList';
 import { texts } from './texts';
 import { QuestionList } from './questions/QuestionList';
@@ -75,6 +76,11 @@ export function App() {
                 list: '/test-users',
                 meta: { label: texts.testUsers.menu },
               },
+              {
+                name: 'settings',
+                list: '/settings',
+                meta: { label: texts.settings.menu },
+              },
             ]}
           >
             <Routes>
@@ -95,6 +101,7 @@ export function App() {
                 <Route path="/questions" element={<QuestionList />} />
                 <Route path="/expired" element={<ExpiredList />} />
                 <Route path="/test-users" element={<TestUserList />} />
+                <Route path="/settings" element={<SettingsPage />} />
               </Route>
               <Route
                 element={

@@ -9,7 +9,7 @@ import { App, Button, Card, Form, Input, Space, Switch, Tag, Tooltip, Typography
 import { Link } from 'react-router';
 import { formatTime } from '../format';
 import { AdminApiError, http } from '../providers/http';
-import { useSettings } from '../settings';
+import { useSettings } from '../settings/useSettings';
 import { errorText, texts } from '../texts';
 
 const t = texts.testUsers;
