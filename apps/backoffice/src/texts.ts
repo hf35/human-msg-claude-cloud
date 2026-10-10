@@ -12,7 +12,6 @@ export const texts = {
     required: 'Обязательное поле',
     failed: 'Вход не выполнен',
   },
-  logout: 'Выйти',
   home: {
     title: 'Бэкофис',
     welcome: 'Вы вошли. Разделы появятся в меню слева.',
@@ -27,8 +26,6 @@ export const texts = {
     unknown: 'Что-то пошло не так',
   },
 } as const;
-
-export type ErrorCode = keyof typeof texts.errors;
 
 /** Text for a reason code the server sent; unknown codes get the generic message. */
 export const errorText = (code: string): string =>

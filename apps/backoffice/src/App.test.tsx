@@ -125,4 +125,18 @@ describe('sign-in', () => {
     expect(await screen.findByRole('heading', { name: 'Вход в бэкофис' })).toBeTruthy();
     await waitFor(() => expect(server.state.signedIn).toBe(false));
   });
+
+  it('shows the sign-in page and tells that the server is unreachable', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    );
+    render(<App />);
+    await userEvent.type(await screen.findByLabelText('Логин'), 'admin');
+    await userEvent.type(screen.getByLabelText('Пароль'), 'secret');
+    await userEvent.click(screen.getByRole('button', { name: 'Войти' }));
+    expect(await screen.findByText('Не удалось связаться с сервером')).toBeTruthy();
+  });
 });

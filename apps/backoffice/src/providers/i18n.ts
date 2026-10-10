@@ -1,6 +1,9 @@
 import type { I18nProvider } from '@refinedev/core';
 
-/** Russian for the few stock phrases of Refine's layout; everything else falls back to Refine's own text. */
+/**
+ * Russian for the stock phrases of Refine's components; anything else falls back to Refine's own
+ * text.
+ */
 const phrases: Record<string, string> = {
   'buttons.logout': 'Выйти',
   'buttons.refresh': 'Обновить',

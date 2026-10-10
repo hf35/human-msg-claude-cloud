@@ -25,9 +25,8 @@ export const authProvider: AuthProvider = {
     try {
       await http('GET', '/me');
       return { authenticated: true };
-    } catch (error) {
-      // An unreachable server is not a reason to throw the person out: the page shows the error
-      if (error instanceof AdminApiError && error.status === 0) throw error;
+    } catch {
+      // Also when the server is unreachable: the sign-in page then tells so on the next attempt
       return { authenticated: false, redirectTo: '/login' };
     }
   },
