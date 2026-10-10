@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeServer, makeQuestion, makeUser, renderApp } from '../test-utils';
+import { questionsOfAuthor } from './QuestionList';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -156,5 +157,25 @@ describe('questions list', () => {
     const tag = screen.getByText(/Вопросы автора/).closest('.ant-tag')!;
     await userEvent.click(tag.querySelector('.ant-tag-close-icon')!);
     expect(await screen.findByText('Что почитать?')).toBeTruthy();
+    expect(lastQuestionsQuery(server)).not.toHaveProperty('authorId');
+  });
+
+  it('starts from the first page when the author filter is removed', async () => {
+    const server = signedIn();
+    server.state.questions = Array.from({ length: 25 }, (_, index) =>
+      makeQuestion({
+        id: `10000000-0000-4000-8000-0000000001${String(index).padStart(2, '0')}`,
+        text: `Вопрос ${index + 1}`,
+        authorId: FOX,
+        authorAlias: 'Рыжая Лиса',
+      }),
+    );
+    renderApp(`${questionsOfAuthor(FOX)}&currentPage=3&pageSize=10`);
+    expect(await screen.findByText('Вопрос 21')).toBeTruthy();
+
+    const tag = screen.getByText(/Вопросы автора/).closest('.ant-tag')!;
+    await userEvent.click(tag.querySelector('.ant-tag-close-icon')!);
+    expect(await screen.findByText('Вопрос 1')).toBeTruthy();
+    expect(lastQuestionsQuery(server)).toEqual({ limit: '10', offset: '0' });
   });
 });

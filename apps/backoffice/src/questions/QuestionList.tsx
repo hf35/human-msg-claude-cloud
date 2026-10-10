@@ -28,7 +28,7 @@ export const questionsOfAuthor = (authorId: string): string =>
   })}`;
 
 export function QuestionList() {
-  const { tableProps, filters, setFilters, searchFormProps } = useTable<
+  const { tableProps, filters, setFilters, setCurrentPage, searchFormProps } = useTable<
     AdminQuestionDto,
     never,
     { status: Status }
@@ -65,9 +65,11 @@ export function QuestionList() {
         {authorId && (
           <Tag
             closable
-            onClose={() =>
-              setFilters([{ field: 'authorId', operator: 'eq', value: undefined }], 'merge')
-            }
+            onClose={() => {
+              setFilters([{ field: 'authorId', operator: 'eq', value: undefined }], 'merge');
+              // As after a change of status: the other list starts from its first page
+              setCurrentPage(1);
+            }}
           >
             {t.authorFilter}: {authorAlias ?? authorId}
           </Tag>
