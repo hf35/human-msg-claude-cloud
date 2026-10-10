@@ -7,6 +7,7 @@
 
 # Override to pull the base image from a mirror: --build-arg NODE_IMAGE=mirror.gcr.io/library/node:22-alpine
 ARG NODE_IMAGE=node:22-alpine
+ARG CADDY_IMAGE=caddy:2-alpine
 
 # --- deps: installs only what the server needs, from manifests alone so the layer is cached ---
 FROM ${NODE_IMAGE} AS deps
@@ -42,6 +43,12 @@ RUN pnpm build
 FROM scratch AS static
 COPY --from=static-build /app/apps/web/dist /static/web
 COPY --from=static-build /app/apps/backoffice/dist /static/admin
+
+# --- caddy: the reverse proxy with the static files baked in (docker-compose.prod.yml) ---
+FROM ${CADDY_IMAGE} AS caddy
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY --from=static-build /app/apps/web/dist /srv/web
+COPY --from=static-build /app/apps/backoffice/dist /srv/admin
 
 # --- runtime ---
 FROM ${NODE_IMAGE} AS runtime

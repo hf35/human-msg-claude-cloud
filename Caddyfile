@@ -1,0 +1,32 @@
+# Production reverse proxy (docker-compose.prod.yml). SITE_ADDRESS is the public domain, for which
+# Caddy gets a Let's Encrypt certificate by itself; docs/DEPLOY.md describes the setup.
+{$SITE_ADDRESS:localhost} {
+	encode zstd gzip
+
+	# Everything dynamic goes to the server. WebSocket upgrades (/api/ws) pass through as they are.
+	# The back office API (/admin/api/*) must be matched before the back office pages (/admin*)
+	@server path /api/* /admin/api/* /telegram/webhook
+	handle @server {
+		reverse_proxy server:3000
+	}
+
+	# Back office SPA (built with base /admin/); unknown paths fall back to its index.html
+	handle /admin* {
+		root * /srv
+		try_files {path} /admin/index.html
+		file_server
+	}
+
+	# Web app SPA
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+
+	# Hashed bundles never change; index.html must always be revalidated
+	@assets path /assets/* /admin/assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@html path / /index.html /admin /admin/ /admin/index.html
+	header @html Cache-Control "no-cache"
+}

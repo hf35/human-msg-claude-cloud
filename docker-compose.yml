@@ -1,4 +1,4 @@
-# Local development stack. Production uses its own compose file (see docs/TASKS.md, stage 12).
+# Local development stack. Production uses docker-compose.prod.yml (see docs/DEPLOY.md).
 services:
   postgres:
     image: postgres:17-alpine

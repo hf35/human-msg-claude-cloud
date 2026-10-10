@@ -16,7 +16,7 @@ import { registerStateRoutes } from './web/state';
 import { registerWebSocket } from './web/ws';
 
 export interface AppOptions {
-  config: Pick<Config, 'logLevel'> & Partial<Pick<Config, 'nodeEnv' | 'devLogin'>>;
+  config: Pick<Config, 'logLevel'> & Partial<Pick<Config, 'nodeEnv' | 'devLogin' | 'trustProxy'>>;
   /** The settings store behind the back office settings; without it those routes are absent. */
   settings?: SettingsStore;
   /** Back office sign-in; without it the back office API answers 503. */
@@ -54,7 +54,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     serverId = 'server-1',
     wsPingIntervalMs = 30_000,
   } = options;
-  const app = Fastify({ logger: { level: config.logLevel } });
+  const app = Fastify({ logger: { level: config.logLevel }, trustProxy: config.trustProxy });
 
   app.get('/health', async (request, reply) => {
     reply.type('text/plain');
