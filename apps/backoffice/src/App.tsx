@@ -15,6 +15,7 @@ import { AdminApiError } from './providers/http';
 import { dataProvider } from './providers/data';
 import { i18nProvider } from './providers/i18n';
 import { SettingsPage } from './settings/SettingsPage';
+import { StatsPage } from './stats/StatsPage';
 import { TestUserList } from './test-users/TestUserList';
 import { texts } from './texts';
 import { QuestionList } from './questions/QuestionList';
@@ -77,6 +78,11 @@ export function App() {
                 meta: { label: texts.testUsers.menu },
               },
               {
+                name: 'stats',
+                list: '/stats',
+                meta: { label: texts.stats.menu },
+              },
+              {
                 name: 'settings',
                 list: '/settings',
                 meta: { label: texts.settings.menu },
@@ -101,6 +107,7 @@ export function App() {
                 <Route path="/questions" element={<QuestionList />} />
                 <Route path="/expired" element={<ExpiredList />} />
                 <Route path="/test-users" element={<TestUserList />} />
+                <Route path="/stats" element={<StatsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>
               <Route
