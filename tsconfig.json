@@ -17,6 +17,9 @@
       "path": "apps/web"
     },
     {
+      "path": "apps/backoffice"
+    },
+    {
       "path": "apps/e2e"
     }
   ]
