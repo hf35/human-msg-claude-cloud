@@ -4,6 +4,7 @@ import {
   type AdminUserDto,
   type HistoryItemDto,
   type Settings,
+  type StateResponse,
 } from '@human-msg/shared';
 import { render, type RenderResult } from '@testing-library/react';
 import { vi } from 'vitest';
@@ -66,6 +67,10 @@ export function fakeServer() {
     /** Newest first, as the server lists them. */
     questions: [] as AdminQuestionDto[],
     settings: { ...DEFAULT_SETTINGS } as Settings,
+    /** What each test user sees (`GET /test-users/:id/state`); idle when absent. */
+    testStates: {} as Record<string, StateResponse>,
+    /** The refusal the next message of a test user gets, if any. */
+    messageError: null as { status: number; error: string } | null,
     /** History pages of a user, in the order the cursor walks them. */
     history: {} as Record<string, HistoryItemDto[][]>,
   };
@@ -74,7 +79,15 @@ export function fakeServer() {
     method: string,
     path: string,
     query: URLSearchParams,
-    body: { login?: string; password?: string; text?: string } | undefined,
+    body:
+      | {
+          login?: string;
+          password?: string;
+          text?: string;
+          locale?: 'ru' | 'en';
+          receivingEnabled?: boolean;
+        }
+      | undefined,
   ) => {
     if (path === '/admin/api/login' && method === 'POST') {
       if (body?.login === 'admin' && body?.password === 'secret') {
@@ -111,6 +124,46 @@ export function fakeServer() {
           (!query.has('authorId') || question.authorId === query.get('authorId')),
       );
       return json({ items: items.slice(offset, offset + limit), total: items.length });
+    }
+    if (path === '/admin/api/test-users' && method === 'POST') {
+      const user = makeUser({
+        id: `00000000-0000-4000-8000-${String(state.users.length + 100).padStart(12, '0')}`,
+        alias: body?.locale === 'en' ? 'Brave Otter' : 'Смелая Выдра',
+        locale: body?.locale ?? 'ru',
+        channel: 'telegram',
+        isTest: true,
+        receivingEnabled: false,
+      });
+      state.users.unshift(user);
+      return json(user, 201);
+    }
+    const testUser = path.match(
+      /^\/admin\/api\/test-users\/([^/]+)\/(receiving|state|messages|skip)$/,
+    );
+    if (testUser) {
+      const [, id, action] = testUser as unknown as [string, string, string];
+      const user = state.users.find((candidate) => candidate.id === id);
+      if (!user) return json({ error: 'not_found' }, 404);
+      const screen = state.testStates[id] ?? { assignment: null, pendingQuestion: null };
+      if (action === 'state') return json(screen);
+      if (action === 'receiving') {
+        user.receivingEnabled = Boolean(body?.receivingEnabled);
+        return json({ receivingEnabled: user.receivingEnabled });
+      }
+      if (action === 'skip') {
+        if (!screen.assignment) return json({ error: 'no_active_assignment' }, 409);
+        const questionId = screen.assignment.questionId;
+        state.testStates[id] = { ...screen, assignment: null };
+        return json({ questionId });
+      }
+      if (state.messageError) {
+        return json({ error: state.messageError.error }, state.messageError.status);
+      }
+      if (screen.assignment) {
+        state.testStates[id] = { ...screen, assignment: null };
+        return json({ kind: 'answered', questionId: screen.assignment.questionId });
+      }
+      return json({ kind: 'asked', questionId: 'q-new', status: 'queued' });
     }
     const staffAnswer = path.match(/^\/admin\/api\/questions\/([^/]+)\/staff-answer$/);
     if (staffAnswer && method === 'POST') {
