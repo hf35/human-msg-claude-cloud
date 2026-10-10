@@ -1,6 +1,6 @@
 import { settingsSchema, type SettingsResponse } from '@human-msg/shared';
 import { useQuery } from '@tanstack/react-query';
-import { http } from './providers/http';
+import { http } from '../providers/http';
 
 export const SETTINGS_KEY = ['backoffice', 'settings'] as const;
 

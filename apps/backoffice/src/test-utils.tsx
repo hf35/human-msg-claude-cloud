@@ -1,5 +1,6 @@
 import {
   DEFAULT_SETTINGS,
+  settingsSchema,
   type AdminQuestionDto,
   type AdminUserDto,
   type HistoryItemDto,
@@ -182,6 +183,12 @@ export function fakeServer() {
       return json({ questionId: question.id }, 201);
     }
     if (path === '/admin/api/settings' && method === 'GET') {
+      return json({ settings: state.settings, defaults: DEFAULT_SETTINGS });
+    }
+    if (path === '/admin/api/settings' && method === 'PUT') {
+      const parsed = settingsSchema.safeParse({ ...state.settings, ...(body as object) });
+      if (!parsed.success) return json({ error: 'invalid', issues: [] }, 400);
+      state.settings = parsed.data;
       return json({ settings: state.settings, defaults: DEFAULT_SETTINGS });
     }
     const history = path.match(/^\/admin\/api\/users\/([^/]+)\/history$/);

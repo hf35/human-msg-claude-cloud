@@ -2,7 +2,7 @@ import { DEFAULT_SETTINGS, validateMessageText, type AdminQuestionDto } from '@h
 import { useMutation } from '@tanstack/react-query';
 import { App, Form, Input, Modal, Typography } from 'antd';
 import { AdminApiError, http } from '../providers/http';
-import { useSettings } from '../settings';
+import { useSettings } from '../settings/useSettings';
 import { errorText, texts } from '../texts';
 
 const t = texts.expired;
