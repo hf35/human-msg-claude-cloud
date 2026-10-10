@@ -1,18 +1,12 @@
 import { historyResponseSchema, type HistoryItemDto } from '@human-msg/shared';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Space, Spin, Typography } from 'antd';
 import { formatTime } from '../format';
+import { StatusTag } from '../questions/status';
 import { AdminApiError, http } from '../providers/http';
 import { errorText, texts } from '../texts';
 
 const t = texts.history;
-
-const statusColor = {
-  queued: 'blue',
-  assigned: 'gold',
-  answered: 'green',
-  expired: 'red',
-} as const;
 
 function Item({ item }: { item: HistoryItemDto }) {
   if (item.kind === 'question') {
@@ -20,7 +14,7 @@ function Item({ item }: { item: HistoryItemDto }) {
       <Card size="small" title={`${t.asked} · ${formatTime(item.createdAt)}`}>
         <Space direction="vertical" style={{ width: '100%' }}>
           <Space>
-            <Tag color={statusColor[item.status]}>{texts.questionStatus[item.status]}</Tag>
+            <StatusTag status={item.status} />
           </Space>
           <Typography.Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
             {item.text}
