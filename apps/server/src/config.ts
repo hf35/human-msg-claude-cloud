@@ -29,6 +29,12 @@ const envSchema = z.object({
   // OAuth client id of the web app; ID tokens issued for any other client are refused.
   // Without it Google sign-in is off (local development can use DEV_LOGIN instead).
   GOOGLE_CLIENT_ID: optional(z.string().trim()),
+  // Behind a reverse proxy (Caddy) the client address comes from X-Forwarded-For. Set it only when
+  // the server is reachable through the proxy alone, or any client can forge its address
+  TRUST_PROXY: z
+    .enum(['true', 'false', '1', '0'])
+    .default('false')
+    .transform((value) => value === 'true' || value === '1'),
   // Sign-in without Google for local development; refused outside NODE_ENV=development
   DEV_LOGIN: z
     .enum(['true', 'false', '1', '0'])
@@ -73,6 +79,8 @@ export interface Config {
   googleClientId?: string;
   /** Sign-in without Google; only ever true when `nodeEnv` is `development`. */
   devLogin: boolean;
+  /** Take the client address from the reverse proxy's X-Forwarded-For header. */
+  trustProxy: boolean;
   /** Telegram bot settings; absent when no token is configured. */
   telegram?: {
     token: string;
@@ -129,6 +137,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     databaseUrl: values.DATABASE_URL,
     ...(values.GOOGLE_CLIENT_ID && { googleClientId: values.GOOGLE_CLIENT_ID }),
     devLogin: values.DEV_LOGIN,
+    trustProxy: values.TRUST_PROXY,
     ...(values.TELEGRAM_BOT_TOKEN && {
       telegram: {
         token: values.TELEGRAM_BOT_TOKEN,

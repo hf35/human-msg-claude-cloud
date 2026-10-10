@@ -69,3 +69,25 @@ describe('shutdown', () => {
     expect(server.server.listening).toBe(false);
   });
 });
+
+describe('client address behind a reverse proxy', () => {
+  const clientIp = async (trustProxy: boolean) => {
+    const server = await build({ config: { logLevel: 'silent', trustProxy } });
+    server.get('/ip', async (request) => request.ip);
+    const response = await server.inject({
+      method: 'GET',
+      url: '/ip',
+      remoteAddress: '172.18.0.2',
+      headers: { 'x-forwarded-for': '203.0.113.7' },
+    });
+    return response.body;
+  };
+
+  it('takes it from X-Forwarded-For when the proxy is trusted', async () => {
+    expect(await clientIp(true)).toBe('203.0.113.7');
+  });
+
+  it('ignores the header otherwise, so a client cannot forge its address', async () => {
+    expect(await clientIp(false)).toBe('172.18.0.2');
+  });
+});

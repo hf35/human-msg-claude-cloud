@@ -1,0 +1,89 @@
+# Production stack: caddy (HTTPS, static files, proxy), server and postgres.
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#
+# Settings come from .env (see .env.example, section "Production"); docs/DEPLOY.md has the full guide.
+# Only caddy publishes ports. The server and the database are reachable inside the stack only.
+name: human-msg
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-humanmsg}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-humanmsg}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Applies pending migrations and exits; the server starts only after it succeeds
+  migrate:
+    build: &server-build
+      context: .
+      target: runtime
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+    command: ['packages/db/node_modules/.bin/tsx', 'packages/db/src/migrate-cli.ts']
+    restart: 'no'
+    environment: &database
+      DATABASE_URL: postgres://${POSTGRES_USER:-humanmsg}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-humanmsg}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  server:
+    build: *server-build
+    restart: unless-stopped
+    environment:
+      <<: *database
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: '3000'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SERVER_ID: ${SERVER_ID:-server-1}
+      # The server is reachable through caddy only, so X-Forwarded-For can be trusted
+      TRUST_PROXY: 'true'
+      DEV_LOGIN: 'false'
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_MODE: ${TELEGRAM_MODE:-webhook}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      BACKOFFICE_LOGIN: ${BACKOFFICE_LOGIN:-}
+      BACKOFFICE_PASSWORD_HASH: ${BACKOFFICE_PASSWORD_HASH:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  caddy:
+    build:
+      context: .
+      target: caddy
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        CADDY_IMAGE: ${CADDY_IMAGE:-caddy:2-alpine}
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    ports:
+      - '${HTTP_PORT:-80}:80'
+      - '${HTTPS_PORT:-443}:443'
+    volumes:
+      # Certificates and ACME account: losing them means re-issuing and hitting rate limits
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

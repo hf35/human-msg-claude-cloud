@@ -13,6 +13,7 @@ describe('loadConfig', () => {
       logLevel: 'info',
       databaseUrl: DATABASE_URL,
       devLogin: false,
+      trustProxy: false,
       serverId: 'server-1',
       workerIntervalMs: 5000,
       dispatchIntervalMs: 5000,
@@ -76,6 +77,12 @@ describe('loadConfig', () => {
     ).toMatchObject({
       googleClientId: 'abc.apps.googleusercontent.com',
     });
+  });
+
+  it('trusts the reverse proxy only when told to', () => {
+    expect(loadConfig({ DATABASE_URL }).trustProxy).toBe(false);
+    expect(loadConfig({ DATABASE_URL, TRUST_PROXY: 'true' }).trustProxy).toBe(true);
+    expect(() => loadConfig({ DATABASE_URL, TRUST_PROXY: 'yes' })).toThrow(/TRUST_PROXY/);
   });
 
   it('enables the dev login only in development', () => {
