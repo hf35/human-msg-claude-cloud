@@ -82,6 +82,25 @@ describe('journal of unanswered questions', () => {
     await screen.findByText('Есть кто живой?');
     await userEvent.click(answerButtonOf('Есть кто живой?'));
     expect(await within(dialog()).findByText('0 / 50')).toBeTruthy();
+
+    // A longer text is not cut: it is refused with a reason
+    const long = 'Очень длинный ответ, который не помещается в лимит настроек.';
+    await userEvent.click(within(dialog()).getByLabelText('Ответ'));
+    await userEvent.paste(long);
+    expect((within(dialog()).getByLabelText('Ответ') as HTMLTextAreaElement).value).toBe(long);
+    expect(await within(dialog()).findByText('Ответ слишком длинный')).toBeTruthy();
+    await userEvent.click(within(dialog()).getByRole('button', { name: /Отправить ответ/ }));
+    expect(server.calls.some((call) => call.path.endsWith('/staff-answer'))).toBe(false);
+  });
+
+  it('counts an emoji as one character', async () => {
+    signedIn();
+    renderApp('/expired');
+    await screen.findByText('Есть кто живой?');
+    await userEvent.click(answerButtonOf('Есть кто живой?'));
+    await userEvent.click(within(dialog()).getByLabelText('Ответ'));
+    await userEvent.paste('Да 👍🏽');
+    expect(await within(dialog()).findByText('4 / 2000')).toBeTruthy();
   });
 
   it('tells when someone has already answered and drops the question from the journal', async () => {

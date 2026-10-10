@@ -7,6 +7,10 @@ import { errorText, texts } from '../texts';
 
 const t = texts.expired;
 
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+/** Characters as a person sees them (an emoji is one), as the server counts them. */
+const countCharacters = (text: string): number => [...graphemes.segment(text)].length;
+
 interface Props {
   question: AdminQuestionDto;
   onClose: () => void;
@@ -71,9 +75,10 @@ export function AnswerModal({ question, onClose, onAnswered }: Props) {
         >
           <Input.TextArea
             autoSize={{ minRows: 4, maxRows: 12 }}
-            showCount
-            maxLength={maxLength}
             autoFocus
+            // Not `maxLength`: it would cut a pasted text silently. The counter turns red instead
+            // and the validator above refuses to send
+            count={{ show: true, max: maxLength, strategy: countCharacters }}
           />
         </Form.Item>
       </Form>
