@@ -1,4 +1,4 @@
-import type { AdminUserDto, HistoryItemDto } from '@human-msg/shared';
+import type { AdminQuestionDto, AdminUserDto, HistoryItemDto } from '@human-msg/shared';
 import { render, type RenderResult } from '@testing-library/react';
 import { vi } from 'vitest';
 import { App } from './App';
@@ -32,6 +32,20 @@ export const makeUser = (overrides: Partial<AdminUserDto> = {}): AdminUserDto =>
   ...overrides,
 });
 
+export const makeQuestion = (overrides: Partial<AdminQuestionDto> = {}): AdminQuestionDto => ({
+  id: '10000000-0000-4000-8000-000000000001',
+  text: 'Как дела?',
+  status: 'queued',
+  authorId: '00000000-0000-4000-8000-000000000001',
+  authorAlias: 'Зелёный Кролик',
+  createdAt: '2026-10-10T10:00:00.000Z',
+  expiresAt: '2026-10-10T13:00:00.000Z',
+  answeredAt: null,
+  answer: null,
+  assignments: [],
+  ...overrides,
+});
+
 /**
  * A stand-in for the server: one correct login and password (`admin` / `secret`), the session
  * is a flag. Tests arrange what the server knows in `state` and read what the page asked in `calls`.
@@ -43,6 +57,8 @@ export function fakeServer() {
     loginStatus: 401,
     loginError: 'invalid_credentials',
     users: [] as AdminUserDto[],
+    /** Newest first, as the server lists them. */
+    questions: [] as AdminQuestionDto[],
     /** History pages of a user, in the order the cursor walks them. */
     history: {} as Record<string, HistoryItemDto[][]>,
   };
@@ -76,6 +92,16 @@ export function fakeServer() {
           (!query.has('isTest') || String(user.isTest) === query.get('isTest')) &&
           (!query.has('isStaff') || String(user.isStaff) === query.get('isStaff')) &&
           (!query.has('search') || user.alias.includes(query.get('search')!)),
+      );
+      return json({ items: items.slice(offset, offset + limit), total: items.length });
+    }
+    if (path === '/admin/api/questions') {
+      const limit = Number(query.get('limit') ?? 20);
+      const offset = Number(query.get('offset') ?? 0);
+      const items = state.questions.filter(
+        (question) =>
+          (!query.has('status') || question.status === query.get('status')) &&
+          (!query.has('authorId') || question.authorId === query.get('authorId')),
       );
       return json({ items: items.slice(offset, offset + limit), total: items.length });
     }

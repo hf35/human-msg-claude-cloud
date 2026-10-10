@@ -14,6 +14,7 @@ import { AdminApiError } from './providers/http';
 import { dataProvider } from './providers/data';
 import { i18nProvider } from './providers/i18n';
 import { texts } from './texts';
+import { QuestionList } from './questions/QuestionList';
 import { UserList } from './users/UserList';
 import { UserShow } from './users/UserShow';
 
@@ -56,6 +57,11 @@ export function App() {
                 show: '/users/:id',
                 meta: { label: texts.users.menu },
               },
+              {
+                name: 'questions',
+                list: '/questions',
+                meta: { label: texts.questions.menu },
+              },
             ]}
           >
             <Routes>
@@ -73,6 +79,7 @@ export function App() {
                   <Route index element={<UserList />} />
                   <Route path=":id" element={<UserShow />} />
                 </Route>
+                <Route path="/questions" element={<QuestionList />} />
               </Route>
               <Route
                 element={

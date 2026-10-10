@@ -1,8 +1,10 @@
 import type { AdminUserDto } from '@human-msg/shared';
 import { Show } from '@refinedev/antd';
 import { useShow } from '@refinedev/core';
-import { Alert, Descriptions, Typography } from 'antd';
+import { Alert, Descriptions, Space, Typography } from 'antd';
+import { Link } from 'react-router';
 import { formatTime } from '../format';
+import { questionsOfAuthor } from '../questions/QuestionList';
 import { AdminApiError } from '../providers/http';
 import { errorText, texts } from '../texts';
 import { History } from './History';
@@ -56,9 +58,10 @@ export function UserShow() {
               <Typography.Text copyable>{user.id}</Typography.Text>
             </Descriptions.Item>
           </Descriptions>
-          <Typography.Title level={4} style={{ marginTop: 24 }}>
-            {texts.history.title}
-          </Typography.Title>
+          <Space align="baseline" style={{ marginTop: 24 }}>
+            <Typography.Title level={4}>{texts.history.title}</Typography.Title>
+            <Link to={questionsOfAuthor(user.id)}>{texts.history.allQuestions}</Link>
+          </Space>
           <History userId={user.id} version={query.dataUpdatedAt} />
         </>
       )}
