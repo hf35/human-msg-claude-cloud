@@ -51,6 +51,8 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm test
+      # The production bundles of the web app and the back office must build
+      - run: pnpm build
 
       # End-to-end: two browsers, a question from one reaches the other and the answer comes back
       - run: pnpm --filter @human-msg/e2e exec playwright install --with-deps chromium
