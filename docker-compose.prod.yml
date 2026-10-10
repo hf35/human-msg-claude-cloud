@@ -2,14 +2,39 @@
 #
 #   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 #
+# On a small server (512 MB) do not build there: CI publishes the images (.github/workflows/images.yml)
+# and the server only pulls them: `dc pull && dc up -d --no-build` (docs/DEPLOY.md, section 9).
+# With enough memory (about 2 GB) `dc up -d --build` builds the same images locally.
+#
 # Settings come from .env (see .env.example, section "Production"); docs/DEPLOY.md has the full guide.
 # Only caddy publishes ports. The server and the database are reachable inside the stack only.
 name: human-msg
+
+x-logging: &logging # Docker keeps container logs forever by default, which fills a small disk
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
 
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    logging: *logging
+    mem_limit: 192m
+    # Defaults assume a big machine; this is enough for the app and keeps postgres small
+    command:
+      - postgres
+      - -c
+      - shared_buffers=48MB
+      - -c
+      - max_connections=30
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=16MB
+      - -c
+      - effective_cache_size=128MB
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-humanmsg}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
@@ -22,10 +47,12 @@ services:
       timeout: 3s
       retries: 10
 
-  # Daily pg_dump with rotation (docs/BACKUP.md). Dumps land in BACKUP_DIR on the host
+  # Monthly pg_dump with rotation (docs/BACKUP.md). Dumps land in BACKUP_DIR on the host
   backup:
     image: postgres:17-alpine
     restart: unless-stopped
+    logging: *logging
+    mem_limit: 64m
     command: ['/deploy/backup.sh']
     environment:
       PGHOST: postgres
@@ -33,7 +60,8 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: ${POSTGRES_DB:-humanmsg}
       BACKUP_AT: ${BACKUP_AT:-03:00}
-      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_EVERY_DAYS: ${BACKUP_EVERY_DAYS:-30}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-180}
     volumes:
       - ./deploy:/deploy:ro
       - ${BACKUP_DIR:-./backups}:/backups
@@ -43,11 +71,14 @@ services:
 
   # Applies pending migrations and exits; the server starts only after it succeeds
   migrate:
+    image: &server-image ${IMAGE_REPO:-ghcr.io/hf35/human-msg-claude-cloud}/server:${IMAGE_TAG:-latest}
     build: &server-build
       context: .
       target: runtime
       args:
         NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+    mem_limit: 256m
+    logging: *logging
     command: ['packages/db/node_modules/.bin/tsx', 'packages/db/src/migrate-cli.ts']
     restart: 'no'
     environment: &database
@@ -57,10 +88,15 @@ services:
         condition: service_healthy
 
   server:
+    image: *server-image
     build: *server-build
     restart: unless-stopped
+    logging: *logging
+    mem_limit: 224m
     environment:
       <<: *database
+      # Garbage-collect the heap before it grows past this (the process stays near 100 MB)
+      NODE_OPTIONS: --max-old-space-size=128
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: '3000'
@@ -81,6 +117,9 @@ services:
         condition: service_completed_successfully
 
   caddy:
+    image: ${IMAGE_REPO:-ghcr.io/hf35/human-msg-claude-cloud}/caddy:${IMAGE_TAG:-latest}
+    logging: *logging
+    mem_limit: 96m
     build:
       context: .
       target: caddy
