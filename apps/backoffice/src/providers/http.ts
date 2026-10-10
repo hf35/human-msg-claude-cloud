@@ -1,4 +1,5 @@
 import { errorResponseSchema } from '@human-msg/shared';
+import { errorText } from '../texts';
 
 /** All back office endpoints live under this path; so does the session cookie. */
 export const API_URL = '/admin/api';
@@ -10,8 +11,14 @@ export class AdminApiError extends Error {
     /** Machine-readable reason; `network` when the server could not be reached. */
     readonly code: string,
   ) {
-    super(`${status} ${code}`);
+    // Refine shows `message` in its error notifications
+    super(errorText(code));
     this.name = 'AdminApiError';
+  }
+
+  /** The field Refine reads the HTTP status from (`HttpError`). */
+  get statusCode(): number {
+    return this.status;
   }
 }
 
