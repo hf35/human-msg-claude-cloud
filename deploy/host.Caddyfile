@@ -1,0 +1,31 @@
+# Caddy installed on the host (apt install caddy), the only process listening on 80/443.
+# Copy to /etc/caddy/Caddyfile (or `import` it from there) and replace the domains;
+# apply with: systemctl reload caddy. Caddy gets Let's Encrypt certificates by itself.
+# Both domains need an A record pointing to this server.
+
+# The messenger lives on a subdomain. Use this address as PUBLIC_URL in .env and as the
+# authorized JavaScript origin in Google OAuth.
+# WebSocket upgrades (/api/ws) pass through as they are.
+msg.example.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8080
+}
+
+# The main domain serves exactly the file named in the URL and nothing else:
+# /srv/files/photo.png -> https://example.com/photo.png (subfolders work too).
+# Folder listings are off, a folder URL (and "/") answers 404 even if it holds an index.html,
+# and files starting with a dot are hidden. Add basic_auth here (hash: `caddy hash-password`)
+# for anything private.
+example.com {
+	encode zstd gzip
+	root * /srv/files
+	file_server {
+		index off
+		hide .*
+	}
+}
+
+# Optional: send www.example.com to the main domain
+# www.example.com {
+# 	redir https://example.com{uri} permanent
+# }

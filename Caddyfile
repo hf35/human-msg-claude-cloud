@@ -1,6 +1,16 @@
-# Production reverse proxy (docker-compose.prod.yml). SITE_ADDRESS is the public domain, for which
-# Caddy gets a Let's Encrypt certificate by itself; docs/DEPLOY.md describes the setup.
-{$SITE_ADDRESS:localhost} {
+# Internal app proxy (docker-compose.prod.yml): plain HTTP on :80, published on 127.0.0.1 only.
+# HTTPS and the public domain are handled by the Caddy installed on the host (deploy/host.Caddyfile),
+# which proxies to this container; docs/DEPLOY.md describes the setup.
+{
+	auto_https off
+	servers {
+		# Trust the host Caddy (it reaches us from a private docker address) so that the real client
+		# address from X-Forwarded-For is passed on to the server instead of being overwritten
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
 	encode zstd gzip
 
 	# Everything dynamic goes to the server. WebSocket upgrades (/api/ws) pass through as they are.
