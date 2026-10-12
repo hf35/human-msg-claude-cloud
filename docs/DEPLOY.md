@@ -52,8 +52,10 @@ Docker Compose ([`docker-compose.prod.yml`](../docker-compose.prod.yml)), а HTT
    systemctl reload caddy
    ```
 
-   Если порт `HTTP_PORT` в `.env` изменён, укажите его в `reverse_proxy`. Остальные сайты и
-   файлы на сервере добавляются в этот же файл (пример с папкой `/srv/files` в нём есть).
+   Если порт `HTTP_PORT` в `.env` изменён, укажите его в `reverse_proxy`. Файл, положенный в
+   `/srv/files`, сразу открывается с корня домена (`/srv/files/photo.png` → `https://<домен>/photo.png`);
+   пути `/api`, `/admin`, `/telegram/webhook` и главная страница всегда принадлежат приложению.
+   Другие сайты добавляются в этот же файл отдельными блоками.
    Если Caddy до этого уже стоял в Docker (старая схема), остановите его: `dc down`, затем
    запуск по шагу 6; старые тома `caddy_data` и `caddy_config` можно удалить.
 

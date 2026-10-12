@@ -1,25 +1,42 @@
 # Caddy installed on the host (apt install caddy), the only process listening on 80/443.
-# Copy to /etc/caddy/Caddyfile (or `import` it from there) and replace the domains;
+# Copy to /etc/caddy/Caddyfile (or `import` it from there) and replace the domain;
 # apply with: systemctl reload caddy. Caddy gets Let's Encrypt certificates by itself.
 
-# The messenger: everything goes to the app's caddy container (HTTP_PORT in .env, default 8080).
-# WebSocket upgrades (/api/ws) pass through as they are.
-msg.example.com {
+example.com {
 	encode zstd gzip
-	reverse_proxy 127.0.0.1:8080
+
+	# Paths of the messenger always go to the app, so a file with such a name can never shadow them.
+	# WebSocket upgrades (/api/ws) pass through as they are.
+	@app path /api/* /admin /admin/* /telegram/webhook
+	handle @app {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# Any other file: put it into /srv/files and it is served from the domain root,
+	# /srv/files/photo.png -> https://example.com/photo.png (subfolders work too).
+	# Directories and "/" are skipped on purpose, so the messenger's home page stays reachable.
+	# Add basic_auth here (hash: `caddy hash-password`) for anything private.
+	@file {
+		not path */
+		file {
+			root /srv/files
+			try_files {path}
+		}
+	}
+	handle @file {
+		root * /srv/files
+		file_server
+	}
+
+	# Everything else is the messenger's web app
+	handle {
+		reverse_proxy 127.0.0.1:8080
+	}
 }
 
-# Any other files: put a file into /srv/files and it is served at https://files.example.com/<name>.
-# Add basic_auth here (hash: `caddy hash-password`) for anything private.
-files.example.com {
-	root * /srv/files
-	file_server
-}
-
-# Alternative: the same folder on a path of the messenger's domain. Put the block inside the
-# msg.example.com site, BEFORE the reverse_proxy line:
+# Alternative: files on a separate subdomain instead of the domain root.
 #
-#	handle_path /files/* {
-#		root * /srv/files
-#		file_server
-#	}
+# files.example.com {
+# 	root * /srv/files
+# 	file_server
+# }
