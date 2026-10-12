@@ -1,11 +1,13 @@
 # Развёртывание на VPS
 
-Пошаговая инструкция: от пустого сервера до работающего сервиса с HTTPS. Всё работает в
-Docker Compose ([`docker-compose.prod.yml`](../docker-compose.prod.yml)):
+Пошаговая инструкция: от пустого сервера до работающего сервиса с HTTPS. Приложение работает в
+Docker Compose ([`docker-compose.prod.yml`](../docker-compose.prod.yml)), а HTTPS и домены
+обслуживает **Caddy, установленный на самом сервере** (не в Docker). Так на одном сервере можно
+держать и другие сайты и файлы (шаг 1.4 и [`deploy/host.Caddyfile`](../deploy/host.Caddyfile)).
 
 | Сервис     | Что делает                                                                         |
 | ---------- | ---------------------------------------------------------------------------------- |
-| `caddy`    | Единственный, кто открыт наружу (80, 443): HTTPS, статика веба и бэкофиса, прокси  |
+| `caddy`    | Внутренний: статика веба и бэкофиса, прокси на `server`; слушает только `127.0.0.1:8080` |
 | `server`   | API, веб-сокеты, бот, воркер и доставка событий в одном процессе                   |
 | `postgres` | База данных (том `pgdata`, наружу не открыта)                                      |
 | `migrate`  | Разово применяет миграции и завершается; `server` стартует только после него       |
@@ -27,8 +29,8 @@ Docker Compose ([`docker-compose.prod.yml`](../docker-compose.prod.yml)):
 1. В DNS добавьте запись `A` (и `AAAA`, если есть IPv6) `<домен>` → IP сервера. Caddy получит
    сертификат только когда домен уже указывает на сервер.
 2. Откройте порты 80 и 443 (TCP; 443/UDP нужен для HTTP/3). Порт 80 обязателен: через него
-   Let's Encrypt проверяет домен. Остальные порты наружу открывать не нужно, база и сервер
-   снаружи недоступны. Пример для `ufw`:
+   Let's Encrypt проверяет домен. Остальные порты наружу открывать не нужно, база, сервер и
+   контейнер `caddy` снаружи недоступны (последний слушает только `127.0.0.1`). Пример для `ufw`:
 
    ```sh
    ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443 && ufw enable
@@ -41,7 +43,21 @@ Docker Compose ([`docker-compose.prod.yml`](../docker-compose.prod.yml)):
    docker compose version     # должно напечатать версию
    ```
 
-4. Склонируйте репозиторий и перейдите в него. Все дальнейшие команды выполняются в этом каталоге:
+4. Установите Caddy на хост ([официальная инструкция](https://caddyserver.com/docs/install#debian-ubuntu-raspbian),
+   пакет `caddy` из их apt-репозитория). Он сам запускается как сервис `caddy` и получает
+   сертификаты. Положите в `/etc/caddy/Caddyfile` содержимое
+   [`deploy/host.Caddyfile`](../deploy/host.Caddyfile), подставив свой домен, и примените:
+
+   ```sh
+   systemctl reload caddy
+   ```
+
+   Если порт `HTTP_PORT` в `.env` изменён, укажите его в `reverse_proxy`. Остальные сайты и
+   файлы на сервере добавляются в этот же файл (пример с папкой `/srv/files` в нём есть).
+   Если Caddy до этого уже стоял в Docker (старая схема), остановите его: `dc down`, затем
+   запуск по шагу 6; старые тома `caddy_data` и `caddy_config` можно удалить.
+
+5. Склонируйте репозиторий и перейдите в него. Все дальнейшие команды выполняются в этом каталоге:
 
    ```sh
    git clone https://github.com/hf35/human-msg-claude-cloud.git human-msg
@@ -92,8 +108,7 @@ Docker Compose ([`docker-compose.prod.yml`](../docker-compose.prod.yml)):
 
 ```sh
 # --- Адрес ---
-SITE_ADDRESS=example.com            # домен без https://
-PUBLIC_URL=https://example.com      # тот же домен с https://, без слэша на конце
+PUBLIC_URL=https://example.com      # домен из хостового Caddyfile с https://, без слэша на конце
 
 # --- База ---
 POSTGRES_PASSWORD=                  # длинный случайный пароль: openssl rand -hex 24
@@ -146,14 +161,15 @@ dc up -d --build
 ```
 
 На сервере с 512 МБ эта команда не подходит: используйте раздел 9. Что происходит: собираются образы (первый раз 3–10 минут), поднимается `postgres`, `migrate`
-применяет миграции и завершается, затем стартуют `server` и `caddy`. Caddy сам получает
-сертификат Let's Encrypt для `SITE_ADDRESS`.
+применяет миграции и завершается, затем стартуют `server` и `caddy`. Сертификат Let's Encrypt
+для домена получает Caddy на хосте (шаг 1.4).
 
 Проверка:
 
 ```sh
 dc ps -a           # postgres, server, caddy, backup: running (healthy); migrate: exited (0)
 dc logs server     # «Server listening …», «telegram bot @имя receives updates by webhook»
+curl -sI http://127.0.0.1:8080/ | head -1                # HTTP/1.1 200: внутренний caddy
 curl -sI https://example.com/ | head -1                 # HTTP/2 200
 curl -s https://example.com/api/me                       # {"error":"unauthorized"}
 ```
@@ -190,14 +206,14 @@ dc up -d --build
 
 - **Бэкапы** делаются раз в месяц (и перед каждым обновлением вручную); восстановление и копирование вне сервера — в
   [BACKUP.md](BACKUP.md). Настройте копирование каталога `backups/` на другую машину сразу.
-- **Логи:** `dc logs -f server`, `dc logs caddy`. Формат — JSON (pino).
+- **Логи:** `dc logs -f server`, `dc logs caddy`; Caddy на хосте: `journalctl -u caddy`. Формат логов `server` — JSON (pino).
 - **Состояние:** `dc ps -a`; проверка процесса и базы — `GET /health` (изнутри:
   `dc exec server wget -qO- http://127.0.0.1:3000/health`).
 - **Продуктовые настройки** (сроки, паузы, тихие часы, лимиты) меняются в бэкофисе без
   перезапуска.
-- **Перезагрузка сервера:** все сервисы `restart: unless-stopped` и поднимутся сами вместе с Docker.
-- **Остановка:** `dc down` (данные сохраняются); `dc down -v` удаляет тома вместе с базой и
-  сертификатами, не делайте этого без свежего бэкапа.
+- **Перезагрузка сервера:** все сервисы `restart: unless-stopped` и поднимутся сами вместе с Docker, Caddy на хосте — как systemd-сервис.
+- **Остановка:** `dc down` (данные сохраняются); `dc down -v` удаляет тома вместе с базой,
+  не делайте этого без свежего бэкапа.
 
 ## 9. Сервер с 512 МБ: образы из CI
 
@@ -205,7 +221,7 @@ dc up -d --build
 собирает GitHub Actions ([`.github/workflows/images.yml`](../.github/workflows/images.yml)) и
 публикует их в GitHub Container Registry, а сервер только скачивает готовое. Работающий стек
 занимает около 350–400 МБ (в простое: `server` ≈ 80, `postgres` ≈ 35–45, `caddy` ≈ 12, Docker ≈ 155,
-плюс ОС), поэтому нужен swap, а у сервисов в compose заданы лимиты памяти.
+плюс ОС и Caddy на хосте), поэтому нужен swap, а у сервисов в compose заданы лимиты памяти.
 
 **Один раз в репозитории на GitHub:**
 
@@ -250,8 +266,8 @@ dc up -d --no-build
 
 ## Закрыть бэкофис дополнительно
 
-В [`Caddyfile`](../Caddyfile) в самое начало блока сайта (до первого `handle`) добавьте правило,
-которое пускает в `/admin` только ваш адрес (подставьте его):
+В `/etc/caddy/Caddyfile` на хосте в самое начало блока сайта (до `reverse_proxy`) добавьте
+правило, которое пускает в `/admin` только ваш адрес (подставьте его):
 
 ```caddyfile
 	@admin_denied {
@@ -263,7 +279,7 @@ dc up -d --no-build
 	}
 ```
 
-После правки: `dc up -d --build caddy`. Следите, чтобы правило не отрезало вас самих.
+После правки: `systemctl reload caddy`. Следите, чтобы правило не отрезало вас самих.
 
 ## Если что-то пошло не так
 
@@ -272,7 +288,7 @@ dc up -d --no-build
 | `dc up` ругается на `POSTGRES_PASSWORD`              | В `.env` не задан `POSTGRES_PASSWORD`                                                                                                              |
 | В `.env` хеш пароля «ломается», вход в бэкофис не идёт | Хеш должен быть в одинарных кавычках (шаг 5); проверьте `dc config \| grep BACKOFFICE_PASSWORD_HASH`                                                |
 | `server` не стартует, в логе «Invalid configuration»   | Сообщение называет переменную: например, вебхуку нужны `TELEGRAM_WEBHOOK_SECRET` и `PUBLIC_URL`; логин и хеш бэкофиса задаются вместе             |
-| Браузер ругается на сертификат                        | Домен не указывает на сервер или закрыт порт 80/443; `dc logs caddy` покажет ответ Let's Encrypt. Не перевыпускайте часто: у Let's Encrypt лимиты  |
+| Браузер ругается на сертификат                        | Домен не указывает на сервер или закрыт порт 80/443; Caddy на хосте не запущен (`systemctl status caddy`); `journalctl -u caddy` покажет ответ Let's Encrypt. Не перевыпускайте часто: у Let's Encrypt лимиты  |
 | Кнопки Google нет                                    | `GOOGLE_CLIENT_ID` пуст или менялся без `dc up -d --build`                                                                                         |
 | Google: `origin_mismatch` / «Error 400»              | В Authorized JavaScript origins нет точного `https://<домен>` (шаг 2)                                                                              |
 | Бот молчит                                           | `dc logs server` (должна быть строка про вебхук); токен верный, `PUBLIC_URL` — публичный https; секрет — только буквы, цифры, `_`, `-`             |
