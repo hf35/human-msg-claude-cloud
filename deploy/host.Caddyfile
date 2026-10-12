@@ -11,14 +11,18 @@ msg.example.com {
 	reverse_proxy 127.0.0.1:8080
 }
 
-# The main domain is a plain file server: /srv/files/photo.png -> https://example.com/photo.png
-# (subfolders work too, and a folder with index.html opens as a page).
-# Add basic_auth here (hash: `caddy hash-password`) for anything private, and `browse` after
-# file_server to show folder listings.
+# The main domain serves exactly the file named in the URL and nothing else:
+# /srv/files/photo.png -> https://example.com/photo.png (subfolders work too).
+# Folder listings are off, a folder URL (and "/") answers 404 even if it holds an index.html,
+# and files starting with a dot are hidden. Add basic_auth here (hash: `caddy hash-password`)
+# for anything private.
 example.com {
 	encode zstd gzip
 	root * /srv/files
-	file_server
+	file_server {
+		index off
+		hide .*
+	}
 }
 
 # Optional: send www.example.com to the main domain

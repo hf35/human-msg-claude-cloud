@@ -53,7 +53,8 @@ Docker Compose ([`docker-compose.prod.yml`](../docker-compose.prod.yml)), а HTT
    ```
 
    Если порт `HTTP_PORT` в `.env` изменён, укажите его в `reverse_proxy`. Приложение работает на поддомене
-   (`msg.example.com`), а основной домен отдаёт файлы из `/srv/files`
+   (`msg.example.com`), а основной домен отдаёт ровно запрошенный файл из `/srv/files`
+   (без списка папок и без `index.html`)
    (`/srv/files/photo.png` → `https://example.com/photo.png`). `PUBLIC_URL` и Authorized JavaScript
    origins в Google — адрес поддомена. Другие сайты добавляются в этот же файл отдельными блоками.
    Если Caddy до этого уже стоял в Docker (старая схема), остановите его: `dc down`, затем
