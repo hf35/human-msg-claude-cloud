@@ -1,42 +1,27 @@
 # Caddy installed on the host (apt install caddy), the only process listening on 80/443.
-# Copy to /etc/caddy/Caddyfile (or `import` it from there) and replace the domain;
+# Copy to /etc/caddy/Caddyfile (or `import` it from there) and replace the domains;
 # apply with: systemctl reload caddy. Caddy gets Let's Encrypt certificates by itself.
+# Both domains need an A record pointing to this server.
 
-example.com {
+# The messenger lives on a subdomain. Use this address as PUBLIC_URL in .env and as the
+# authorized JavaScript origin in Google OAuth.
+# WebSocket upgrades (/api/ws) pass through as they are.
+msg.example.com {
 	encode zstd gzip
-
-	# Paths of the messenger always go to the app, so a file with such a name can never shadow them.
-	# WebSocket upgrades (/api/ws) pass through as they are.
-	@app path /api/* /admin /admin/* /telegram/webhook
-	handle @app {
-		reverse_proxy 127.0.0.1:8080
-	}
-
-	# Any other file: put it into /srv/files and it is served from the domain root,
-	# /srv/files/photo.png -> https://example.com/photo.png (subfolders work too).
-	# Directories and "/" are skipped on purpose, so the messenger's home page stays reachable.
-	# Add basic_auth here (hash: `caddy hash-password`) for anything private.
-	@file {
-		not path */
-		file {
-			root /srv/files
-			try_files {path}
-		}
-	}
-	handle @file {
-		root * /srv/files
-		file_server
-	}
-
-	# Everything else is the messenger's web app
-	handle {
-		reverse_proxy 127.0.0.1:8080
-	}
+	reverse_proxy 127.0.0.1:8080
 }
 
-# Alternative: files on a separate subdomain instead of the domain root.
-#
-# files.example.com {
-# 	root * /srv/files
-# 	file_server
+# The main domain is a plain file server: /srv/files/photo.png -> https://example.com/photo.png
+# (subfolders work too, and a folder with index.html opens as a page).
+# Add basic_auth here (hash: `caddy hash-password`) for anything private, and `browse` after
+# file_server to show folder listings.
+example.com {
+	encode zstd gzip
+	root * /srv/files
+	file_server
+}
+
+# Optional: send www.example.com to the main domain
+# www.example.com {
+# 	redir https://example.com{uri} permanent
 # }

@@ -52,10 +52,10 @@ Docker Compose ([`docker-compose.prod.yml`](../docker-compose.prod.yml)), а HTT
    systemctl reload caddy
    ```
 
-   Если порт `HTTP_PORT` в `.env` изменён, укажите его в `reverse_proxy`. Файл, положенный в
-   `/srv/files`, сразу открывается с корня домена (`/srv/files/photo.png` → `https://<домен>/photo.png`);
-   пути `/api`, `/admin`, `/telegram/webhook` и главная страница всегда принадлежат приложению.
-   Другие сайты добавляются в этот же файл отдельными блоками.
+   Если порт `HTTP_PORT` в `.env` изменён, укажите его в `reverse_proxy`. Приложение работает на поддомене
+   (`msg.example.com`), а основной домен отдаёт файлы из `/srv/files`
+   (`/srv/files/photo.png` → `https://example.com/photo.png`). `PUBLIC_URL` и Authorized JavaScript
+   origins в Google — адрес поддомена. Другие сайты добавляются в этот же файл отдельными блоками.
    Если Caddy до этого уже стоял в Docker (старая схема), остановите его: `dc down`, затем
    запуск по шагу 6; старые тома `caddy_data` и `caddy_config` можно удалить.
 
@@ -110,7 +110,7 @@ Docker Compose ([`docker-compose.prod.yml`](../docker-compose.prod.yml)), а HTT
 
 ```sh
 # --- Адрес ---
-PUBLIC_URL=https://example.com      # домен из хостового Caddyfile с https://, без слэша на конце
+PUBLIC_URL=https://msg.example.com  # адрес приложения (поддомен из хостового Caddyfile), с https://, без слэша на конце
 
 # --- База ---
 POSTGRES_PASSWORD=                  # длинный случайный пароль: openssl rand -hex 24
