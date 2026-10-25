@@ -82,3 +82,91 @@ ul {
 .history li > p {
   margin: 0;
 }
+
+/* Landing (signed-out screen) */
+.landing {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.hero {
+  text-align: center;
+  padding: 1.5rem 0 0.5rem;
+}
+.hero h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.8rem, 6vw, 2.6rem);
+  line-height: 1.2;
+}
+.lead {
+  margin: 0;
+  font-size: 1.15rem;
+  opacity: 0.8;
+}
+.landing h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  display: grid;
+  gap: 0.75rem;
+}
+.steps li {
+  counter-increment: step;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.steps li::before {
+  content: counter(step);
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #8884;
+  border-radius: 0.75rem;
+}
+.choice h3 {
+  margin: 0;
+}
+.choice .hint {
+  flex: 1;
+}
+.button {
+  display: inline-block;
+  padding: 0.55rem 1rem;
+  border-radius: 0.25rem;
+  background: #229ed9;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+}
+.button:hover {
+  filter: brightness(1.08);
+}
+.note {
+  text-align: center;
+  font-size: 0.9rem;
+}

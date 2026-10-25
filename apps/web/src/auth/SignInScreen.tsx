@@ -5,6 +5,7 @@ import { useI18n } from '../i18n';
 import { GoogleButton } from './GoogleButton';
 
 const GOOGLE_CLIENT_ID: string = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
+const TELEGRAM_BOT_URL = 'https://t.me/human_answer_rng_bot';
 
 export function SignInScreen() {
   const { locale, t } = useI18n();
@@ -33,23 +34,56 @@ export function SignInScreen() {
     if (name.trim()) void signIn(() => api.loginDev({ name, locale }));
   };
 
-  return (
-    <section className="card">
-      <h1>{t.web.signIn.title}</h1>
-      <p>{t.web.signIn.subtitle}</p>
+  const { how, web, telegram } = t.web.signIn;
 
-      {GOOGLE_CLIENT_ID ? (
-        <>
-          <p className="hint">{t.web.signIn.googleHint}</p>
-          <GoogleButton
-            clientId={GOOGLE_CLIENT_ID}
-            locale={locale}
-            onCredential={(idToken) => void signIn(() => api.loginGoogle({ idToken, locale }))}
-            onError={() => setError(t.web.signIn.failed)}
-          />
-        </>
-      ) : (
-        <p className="hint">{t.web.signIn.googleUnavailable}</p>
+  return (
+    <div className="landing">
+      <section className="hero">
+        <h1>{t.web.signIn.title}</h1>
+        <p className="lead">{t.web.signIn.subtitle}</p>
+      </section>
+
+      <section aria-labelledby="how-title">
+        <h2 id="how-title">{how.title}</h2>
+        <ol className="steps">
+          <li>{how.ask}</li>
+          <li>{how.route}</li>
+          <li>{how.answer}</li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="choose-title">
+        <h2 id="choose-title">{t.web.signIn.choose}</h2>
+        <div className="choices">
+          <div className="choice">
+            <h3>{web.title}</h3>
+            <p className="hint">{web.text}</p>
+            {GOOGLE_CLIENT_ID ? (
+              <GoogleButton
+                clientId={GOOGLE_CLIENT_ID}
+                locale={locale}
+                onCredential={(idToken) => void signIn(() => api.loginGoogle({ idToken, locale }))}
+                onError={() => setError(t.web.signIn.failed)}
+              />
+            ) : (
+              <p className="hint">{t.web.signIn.googleUnavailable}</p>
+            )}
+          </div>
+
+          <div className="choice">
+            <h3>{telegram.title}</h3>
+            <p className="hint">{telegram.text}</p>
+            <a className="button" href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer">
+              {telegram.button}
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
       )}
 
       {import.meta.env.DEV && (
@@ -68,11 +102,7 @@ export function SignInScreen() {
         </form>
       )}
 
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-    </section>
+      <p className="hint note">{t.web.signIn.note}</p>
+    </div>
   );
 }
