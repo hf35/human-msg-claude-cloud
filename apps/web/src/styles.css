@@ -384,10 +384,7 @@ ul {
   font-size: clamp(2rem, 7vw, 3rem);
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(120deg, var(--text) 35%, var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--text);
 }
 .lead {
   max-width: 30rem;
