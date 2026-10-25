@@ -54,12 +54,30 @@ export const en: Texts = {
     signIn: {
       title: 'Ask a real person',
       subtitle: 'Anonymous questions and answers: your question goes to a random person.',
-      googleHint: 'Sign in with Google. Other users will only see your alias.',
       googleUnavailable: 'Google sign-in is not set up on this server.',
       devTitle: 'Development sign-in',
       devName: 'Name of the test user',
       devButton: 'Sign in without Google',
       failed: 'Could not sign in. Please try again.',
+      how: {
+        title: 'How it works',
+        ask: 'Write a question or a thought, about anything.',
+        route:
+          'It goes to a random available person. You will not know who, and they will not know you.',
+        answer:
+          "The answer comes back to you together with your question. Now and then someone else's question arrives for you: answer one, and you are done.",
+      },
+      choose: 'Where is it more convenient for you?',
+      web: {
+        title: 'In the browser',
+        text: 'Sign in with Google. Other users will only see your alias.',
+      },
+      telegram: {
+        title: 'In Telegram',
+        text: 'No sign-up: open the bot and send it a question.',
+        button: 'Open the bot in Telegram',
+      },
+      note: 'Web and Telegram accounts are separate. Nobody sees your real data, only an alias like "Green Rabbit".',
     },
     header: {
       signedInAs: (alias: string) => `You are "${alias}"`,

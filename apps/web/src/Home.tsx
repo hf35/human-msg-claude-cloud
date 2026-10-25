@@ -35,7 +35,9 @@ export function Home({ me }: { me: MeResponse }) {
   const { assignment, pendingQuestion } = state.data ?? {};
   return (
     <section className="card">
-      <p data-testid="who">{t.web.header.signedInAs(me.alias)}</p>
+      <p className="who" data-testid="who">
+        {t.web.header.signedInAs(me.alias)}
+      </p>
       {connection === 'reconnecting' && (
         <p role="status" className="hint">
           {t.web.connection.reconnecting}
@@ -45,7 +47,7 @@ export function Home({ me }: { me: MeResponse }) {
       {notice && (
         <p role="status" className="notice" data-testid="notice">
           {notice}{' '}
-          <button type="button" onClick={() => setNotice(null)}>
+          <button type="button" className="ghost" onClick={() => setNotice(null)}>
             {t.web.notice.dismiss}
           </button>
         </p>
@@ -55,7 +57,7 @@ export function Home({ me }: { me: MeResponse }) {
         <AnswerCard key={item.id} item={item} />
       ))}
       {answers.length > 0 && (
-        <button type="button" onClick={dismissAll}>
+        <button type="button" className="ghost" onClick={dismissAll}>
           {t.web.notice.dismiss}
         </button>
       )}
@@ -70,7 +72,7 @@ export function Home({ me }: { me: MeResponse }) {
 
       <History />
 
-      <button type="button" onClick={() => void signOut()}>
+      <button type="button" className="ghost signout" onClick={() => void signOut()}>
         {t.web.header.signOut}
       </button>
     </section>

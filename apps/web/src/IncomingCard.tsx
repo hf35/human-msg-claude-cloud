@@ -119,7 +119,12 @@ export function IncomingCard({ me, assignment, notify }: Props) {
           {t.buttons.skip}
         </button>
         {!confirmingReport && (
-          <button type="button" disabled={busy} onClick={() => setConfirmingReport(true)}>
+          <button
+            type="button"
+            className="danger"
+            disabled={busy}
+            onClick={() => setConfirmingReport(true)}
+          >
             {t.buttons.report}
           </button>
         )}
@@ -128,7 +133,12 @@ export function IncomingCard({ me, assignment, notify }: Props) {
       {confirmingReport && (
         <div role="alertdialog" className="confirm" aria-label={t.buttons.report}>
           <p>{t.web.incoming.reportConfirm}</p>
-          <button type="button" disabled={busy} onClick={() => report.mutate()}>
+          <button
+            type="button"
+            className="danger solid"
+            disabled={busy}
+            onClick={() => report.mutate()}
+          >
             {t.web.incoming.reportYes}
           </button>
           <button type="button" onClick={() => setConfirmingReport(false)}>

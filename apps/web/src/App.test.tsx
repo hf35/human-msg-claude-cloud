@@ -20,6 +20,13 @@ describe('signed out', () => {
     expect(document.documentElement.lang).toBe('ru');
   });
 
+  it('offers the Telegram bot next to the web sign-in', async () => {
+    fakeBackend();
+    renderApp();
+    const link = await screen.findByRole('link', { name: 'Открыть бота в Telegram' });
+    expect(link.getAttribute('href')).toBe('https://t.me/human_answer_rng_bot');
+  });
+
   it('uses English for an English browser', async () => {
     vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['en-GB']);
     fakeBackend();

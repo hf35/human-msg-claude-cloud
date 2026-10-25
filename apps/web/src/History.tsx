@@ -21,7 +21,12 @@ export function History() {
 
   return (
     <section className="card history">
-      <button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+      <button
+        type="button"
+        className="ghost"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
         {open ? t.web.history.hide : t.web.history.show}
       </button>
 
