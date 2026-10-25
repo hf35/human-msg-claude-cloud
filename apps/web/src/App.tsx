@@ -35,7 +35,12 @@ export function App() {
   return (
     <I18nProvider value={{ locale, t, setLocale }}>
       <header className="top">
-        <strong>human-msg</strong>
+        <span className="brand">
+          <span className="brand-mark" aria-hidden="true">
+            ?
+          </span>
+          <strong>human-msg</strong>
+        </span>
         <LanguageSwitch />
       </header>
       <main>

@@ -74,6 +74,12 @@ export function SignInScreen() {
             <h3>{telegram.title}</h3>
             <p className="hint">{telegram.text}</p>
             <a className="button" href={TELEGRAM_BOT_URL} target="_blank" rel="noreferrer">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M21.9 4.3 18.6 19.6c-.2 1-.9 1.3-1.7.8l-4.8-3.5-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.9 8.9-8c.4-.3-.1-.5-.6-.2L6.4 13.4 1.7 12c-1-.3-1-1 .2-1.5L20.2 3.4c.9-.3 1.7.2 1.7.9Z"
+                />
+              </svg>
               {telegram.button}
             </a>
           </div>

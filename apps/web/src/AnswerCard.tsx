@@ -33,7 +33,12 @@ export function AnswerCard({ item }: { item: AnsweredQuestion }) {
       ) : confirming ? (
         <div role="alertdialog" className="confirm" aria-label={t.buttons.report}>
           <p>{t.web.answer.reportConfirm}</p>
-          <button type="button" disabled={report.isPending} onClick={() => report.mutate()}>
+          <button
+            type="button"
+            className="danger solid"
+            disabled={report.isPending}
+            onClick={() => report.mutate()}
+          >
             {t.web.incoming.reportYes}
           </button>
           <button type="button" onClick={() => setConfirming(false)}>
@@ -41,7 +46,7 @@ export function AnswerCard({ item }: { item: AnsweredQuestion }) {
           </button>
         </div>
       ) : (
-        <button type="button" onClick={() => setConfirming(true)}>
+        <button type="button" className="danger" onClick={() => setConfirming(true)}>
           {t.buttons.report}
         </button>
       )}
