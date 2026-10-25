@@ -1,51 +1,48 @@
 /* Design tokens: light by default, dark follows the system */
 :root {
   color-scheme: light dark;
-  --bg: #f6f7fb;
-  --bg-glow: #dfe7ff;
+  --bg: #faf6f5;
+  --bg-glow: #f3dce2;
   --surface: #ffffff;
-  --surface-2: #f1f3f9;
-  --border: #e3e6ef;
-  --text: #151826;
-  --muted: #646a80;
-  --accent: #5b5bf0;
-  --accent-hover: #4a4adf;
-  --accent-soft: #ececff;
+  --surface-2: #f6eeee;
+  --border: #eaddde;
+  --text: #2b1519;
+  --muted: #7b656a;
+  --accent: #7b1e3a;
+  --accent-hover: #651730;
+  --accent-ink: #7b1e3a;
+  --accent-soft: #f8e7eb;
+  --accent-2: #b4304f;
   --on-accent: #ffffff;
   --telegram: #229ed9;
-  --danger: #d6455d;
-  --danger-soft: #fdeaee;
-  --ok-soft: #e8f7ee;
-  --shadow: 0 1px 2px #1518260d, 0 8px 24px -12px #15182622;
+  --danger: #cf4a14;
+  --danger-soft: #fdeee6;
+  --on-danger: #ffffff;
+  --shadow: 0 1px 2px #2b15190d, 0 8px 24px -12px #2b151926;
   --radius: 14px;
   font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    sans-serif;
+    Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0e1018;
-    --bg-glow: #1d2150;
-    --surface: #171a26;
-    --surface-2: #1f2332;
-    --border: #2a2f43;
-    --text: #eceef7;
-    --muted: #9aa1b9;
-    --accent: #7c7cff;
-    --accent-hover: #9393ff;
-    --accent-soft: #24264d;
-    --on-accent: #0e1018;
-    --danger: #ff7a8f;
-    --danger-soft: #3a1f27;
-    --ok-soft: #173325;
+    --bg: #150c0f;
+    --bg-glow: #44152a;
+    --surface: #201317;
+    --surface-2: #2b1b20;
+    --border: #3b2830;
+    --text: #f5ebed;
+    --muted: #b79ea4;
+    --accent: #b8334f;
+    --accent-hover: #cc4361;
+    --accent-ink: #ec8aa0;
+    --accent-soft: #3a1a25;
+    --accent-2: #e0607c;
+    --on-accent: #ffffff;
+    --danger: #ff9a6b;
+    --danger-soft: #3d2217;
+    --on-danger: #2b1509;
     --shadow: 0 1px 2px #0006, 0 12px 32px -16px #000a;
   }
 }
@@ -96,7 +93,7 @@ p {
   width: 1.9rem;
   height: 1.9rem;
   border-radius: 0.6rem;
-  background: linear-gradient(135deg, var(--accent), #a45bf0);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: #fff;
   font-weight: 700;
   font-size: 1rem;
@@ -209,7 +206,7 @@ button.danger:hover:not(:disabled) {
 button.danger.solid {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--on-danger);
 }
 button.danger.solid:hover:not(:disabled) {
   background: var(--danger);
@@ -282,7 +279,7 @@ main > .card > .card {
   padding: 0.25rem 0.75rem;
   border-radius: 999px;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -380,7 +377,7 @@ ul {
   font-size: clamp(2rem, 7vw, 3rem);
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(120deg, var(--text) 30%, var(--accent));
+  background: linear-gradient(120deg, var(--text) 35%, var(--accent-2));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -423,7 +420,7 @@ ul {
   place-items: center;
   border-radius: 50%;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 700;
   font-size: 0.9rem;
 }
